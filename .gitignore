@@ -1,0 +1,10 @@
+/build/
+/dist/
+*.zip
+.DS_Store
+*.xcuserstate
+xcuserdata/
+.env
+.env.*
+# Local delivery notes; repository documentation is README.md.
+/README.txt

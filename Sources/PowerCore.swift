@@ -82,9 +82,16 @@ struct PowerSettings {
             }
         }
     }
+    /// Macs that offer High Power Mode report `powermode` (0 automatic, 1 low, 2 high)
+    /// instead of `lowpowermode`.
     func lowPower(_ profile: PowerProfile) -> Bool? {
-        guard let value = profiles[profile.section]?["lowpowermode"] else { return nil }
-        return value != 0
+        let section = profiles[profile.section]
+        if let value = section?["lowpowermode"] { return value != 0 }
+        if let value = section?["powermode"] { return value == 1 }
+        return nil
+    }
+    func lowPowerKey(_ profile: PowerProfile) -> String {
+        profiles[profile.section]?["lowpowermode"] != nil ? "lowpowermode" : "powermode"
     }
     static func sleepDisabled(_ output: String) -> Bool? {
         for line in output.split(separator: "\n") {

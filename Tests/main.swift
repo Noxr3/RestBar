@@ -76,6 +76,21 @@ check(reason() == nil, "Missing percentage is not treated as zero")
 check(BatterySnapshot(percent: 85, onAC: true, charging: false, hasBattery: true, sourceKnown: true).description.contains("未在充电"), "Plugged in does not imply charging")
 check(BatterySnapshot().description == "电源状态暂不可用", "Missing source is explicitly unavailable")
 
+let modern = PowerSettings("Battery Power:\n powermode 1\nAC Power:\n powermode 2\n")
+check(modern.lowPower(.battery) == true, "powermode 1 reads as Low Power on");
+check(modern.lowPower(.adapter) == false, "powermode 2 (High Power) is not Low Power");
+check(modern.lowPowerKey(.battery) == "powermode", "A powermode Mac is written with powermode");
+check(settings.lowPowerKey(.battery) == "lowpowermode", "A lowpowermode Mac keeps its own key");
+
+let resting = MoonMark.dots(columns: 15, phase: .resting)
+check(resting.filter(\.isSignal).count == 1, "Resting mark has exactly one red dot")
+check(resting.filter { !$0.isSignal }.allSatisfy { dot in
+    let dx = dot.x - MoonMark.cut.x, dy = dot.y - MoonMark.cut.y
+    return dx * dx + dy * dy > MoonMark.cut.radius * MoonMark.cut.radius
+}, "Crescent dots stay outside the cut")
+let awakeDots = MoonMark.dots(columns: 15, phase: .awake)
+check(!awakeDots.contains(where: \.isSignal) && awakeDots.count > resting.count, "Awake mark is the fuller disc, in one colour")
+
 if CommandLine.arguments.contains("--integration") {
     let assertion = PowerAssertion()
     let name = "RestBar-integration-\(UUID().uuidString)"

@@ -3,7 +3,7 @@
 <plist version="1.0"><dict>
     <key>CFBundleName</key><string>RestBar</string>
     <key>CFBundleDisplayName</key><string>RestBar</string>
-    <key>CFBundleIdentifier</key><string>com.brad.restbar</string>
+    <key>CFBundleIdentifier</key><string>io.github.noxr3.restbar</string>
     <key>CFBundleExecutable</key><string>RestBar</string>
     <key>CFBundlePackageType</key><string>APPL</string>
     <key>CFBundleShortVersionString</key><string>1.0</string>
@@ -13,5 +13,5 @@
     <key>LSUIElement</key><true/>
     <key>NSHighResolutionCapable</key><true/>
     <key>NSPrincipalClass</key><string>NSApplication</string>
-    <key>NSHumanReadableCopyright</key><string>© 2026 Brad. Local personal utility.</string>
+    <key>NSHumanReadableCopyright</key><string>© 2026 Brad. MIT License.</string>
 </dict></plist>

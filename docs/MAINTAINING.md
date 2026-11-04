@@ -4,12 +4,13 @@
 
 Do these in order. Changing visibility is the point of no return, because forks and caches keep whatever was public.
 
-1. Choose who holds the copyright, and update `LICENSE` and `NSHumanReadableCopyright` in `Info.plist` if it is not "Brad".
-2. Remove the personal e-mail address from history. The first commit carries one, and a public repository publishes it forever. While the repository has few commits and no forks, rewrite the author to the GitHub no-reply address and force-push `main`.
-3. Run the manual checks below on at least the current macOS version.
-4. Change the repository to public.
-5. Under Settings: upload the social card, turn on private vulnerability reporting (`SECURITY.md` depends on it), turn on Discussions if you want them, and protect `main` so the macOS CI job must pass.
-6. Add the description and topics: `macos`, `menu-bar`, `swift`, `keep-awake`, `battery`, `low-power-mode`.
+1. Remove the personal e-mail address from history. The first commit carries one, and a public repository publishes it forever. While the repository has few commits and no forks, rewrite the author to the GitHub no-reply address and force-push `main`.
+2. Run the manual checks below on at least the current macOS version.
+3. Change the repository to public.
+4. Under Settings: upload the social card, turn on private vulnerability reporting (`SECURITY.md` depends on it), turn on Discussions if you want them, and protect `main` so the macOS CI job must pass.
+5. Add the description and topics: `macos`, `menu-bar`, `swift`, `keep-awake`, `battery`, `low-power-mode`.
+
+The copyright is held by Brad personally, as `LICENSE` and `NSHumanReadableCopyright` in `Info.plist` say.
 
 ## Manual checks before a release
 

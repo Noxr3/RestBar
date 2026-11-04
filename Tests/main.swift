@@ -87,7 +87,8 @@ check(resting.allSatisfy { dot in
     let dx = dot.x - MoonMark.cut.x, dy = dot.y - MoonMark.cut.y
     return dx * dx + dy * dy > MoonMark.cut.radius * MoonMark.cut.radius
 }, "Crescent dots stay outside the cut")
-check(!resting.contains(MoonMark.logoDot(columns: 11)), "Logo dot sits in the crescent's mouth")
+let logoDot = MoonMark.logoDot(columns: 11)
+check(!resting.contains { $0.x == logoDot.x && $0.y == logoDot.y }, "Moon's red dot sits in the crescent's mouth")
 check(MoonMark.dots(columns: 11, phase: .awake).count > resting.count, "Awake mark is the fuller disc")
 
 if CommandLine.arguments.contains("--integration") {

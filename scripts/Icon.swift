@@ -95,7 +95,7 @@ struct Icon {
         circle(MoonMark.disc).fill()
         NSGraphicsContext.restoreGraphicsState()
         Brand.markRed.setFill()
-        circle((x: 0.72, y: 0.70, radius: 0.10)).fill()
+        circle((x: 0.72, y: 0.70, radius: 0.13)).fill()
     }
 
     static func wordmark(_ size: CGFloat) -> NSFont {

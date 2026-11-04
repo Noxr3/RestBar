@@ -4,17 +4,17 @@ RestBar follows the visual language of [Dokki](https://dokki.one): monochrome, f
 
 ## Two rules
 
-1. **At most one red thing, and it means something.** On a brand image, that is the logo's dot. In the app, it is the small dot beside the timer, and it exists only while RestBar is holding your Mac awake. At rest the app has no red at all.
+1. **Red belongs to the moon and to keeping the Mac awake.** At rest there is one red dot, in the moon's mouth. While awake the moon itself turns red, in the menu bar and the panel, and so does the switch that holds it there. Nothing else is red: not other switches, not checkboxes, not text, not warnings.
 2. **Nothing is said twice.** If the timer shows the Mac is awake, no icon, subtitle or status word says so again. Before adding an element, ask what it says that nothing else on screen already does.
 
 ## The moon
 
-The moon has two phases, and they are the product's two states. In the app it is always one colour; the shape carries the state.
+The moon has two phases, and they are the product's two states.
 
-| State | Shape |
+| State | Mark |
 | --- | --- |
-| At rest | A crescent |
-| Awake | The full disc |
+| At rest | A crescent with one red dot |
+| Awake | The full disc, in red |
 
 ## Name and line
 
@@ -27,9 +27,9 @@ The moon has two phases, and they are the product's two states. In the app it is
 | --- | --- | --- |
 | Paper | `#191919` | App icon tile, dark brand surfaces |
 | White | `#FFFFFF` | Ink on Paper |
-| Logo red | `#F50233` | The logo's dot |
-| Signal | `#ED0031` on light, `#FF1748` on dark | The awake dot in the app |
-| Control tint | `#191919` on light, `#8A8A8A` on dark | Checked switches and boxes |
+| Logo red | `#F50233` | The moon's dot on the icon and brand images |
+| Signal | `#ED0031` on light, `#FF1748` on dark | The moon and the keep-awake switch in the app |
+| Control tint | `#191919` on light, `#8A8A8A` on dark | Every other checked switch and box |
 
 Everything else in the app is the macOS system colour for that role, so it follows light and dark. Orange is for warnings and errors only, because red is taken.
 
@@ -41,7 +41,8 @@ No gradients, glows, shadows, cards or decorative icons.
 
 - Dots sit on a square grid at 80% of their cell. The crescent is symmetrical about its diagonal.
 - 11 columns from 128 pixels up, 9 below that and in the app. Fewer than 9 stops reading as a moon.
-- The logo's red dot is the same size as its neighbours and sits on the grid, in the crescent's mouth. It appears on the app icon and brand images only.
+- The red dot is half again the size of its neighbours and sits on the grid, in the crescent's mouth.
+- The resting menu bar glyph has no dot: macOS colours it as a template, and a template has one colour.
 - At 32 pixels and below a dot is too small to survive, so the icon draws the same moon as a solid shape.
 - Keep clear space of at least a quarter of the mark's width. Use `-on-light` files on light backgrounds and `-on-dark` on dark.
 - Do not redraw it, tilt it, recolour its dots or add dots.

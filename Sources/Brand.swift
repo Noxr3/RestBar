@@ -8,7 +8,7 @@ enum Brand {
     static let white = hex(0xFFFFFF)
     /// The mark's red dot.
     static let markRed = hex(0xF50233)
-    /// The one red thing in the app: the dot beside the timer while awake.
+    /// Red in the app: the moon's dot at rest; the moon and the main switch while awake.
     static let signal = dynamic(light: 0xED0031, dark: 0xFF1748)
     /// Checked controls. Grey rather than white on dark, so a white knob still shows.
     static let controlTint = dynamic(light: 0x191919, dark: 0x8A8A8A)
@@ -61,12 +61,12 @@ enum MoonMark {
         return result
     }
 
-    /// The logo's red dot: on the grid, in the crescent's mouth, the size of its
-    /// neighbours. Only the logo has it. Inside the product the moon is one colour.
+    /// The moon's red dot: on the grid, in the crescent's mouth, half again the size
+    /// of its neighbours.
     static func logoDot(columns: Int) -> Dot {
         let cell = 1 / CGFloat(columns)
         let column = (0.70 / cell).rounded(.down), row = (0.68 / cell).rounded(.down)
-        return Dot(x: (column + 0.5) * cell, y: (row + 0.5) * cell, radius: cell * fill / 2)
+        return Dot(x: (column + 0.5) * cell, y: (row + 0.5) * cell, radius: cell * fill * 0.75)
     }
 
     /// Few enough columns that every dot still lands on a pixel at small sizes.
@@ -91,26 +91,29 @@ enum MoonMark {
         }
     }
 
-    /// The menu bar image: always a template, so macOS colours it for the bar. Its
-    /// shape says the state, so it stays quiet in a bar full of other apps' icons.
+    /// The menu bar image. At rest it is a template, so macOS colours it for the bar;
+    /// a template has one colour, so it leaves out the red dot. Awake it is real red
+    /// pixels, because macOS paints a tinted drawn template solid black (macOS 26).
     static func menuBarImage(phase: Phase) -> NSImage {
+        let resting = phase == .resting
         let image = NSImage(size: NSSize(width: 18, height: 18), flipped: false) { rect in
-            draw(in: rect.insetBy(dx: 1, dy: 1), columns: 9, phase: phase, ink: .black)
+            draw(in: rect.insetBy(dx: 1, dy: 1), columns: 9, phase: phase, ink: resting ? .black : Brand.hex(0xFF1748))
             return true
         }
-        image.isTemplate = true
+        image.isTemplate = resting
         return image
     }
 }
 
-/// The moon as a SwiftUI view, for the panel.
+/// The moon as a SwiftUI view, for the panel: ink with a red dot at rest, all red awake.
 struct MoonGlyph: View {
     let phase: MoonMark.Phase
     var columns = 9
 
     var body: some View {
         Canvas { context, size in
-            for dot in MoonMark.dots(columns: columns, phase: phase) {
+            let red = Color(nsColor: Brand.signal)
+            func fill(_ dot: MoonMark.Dot, _ color: Color) {
                 let radius = dot.radius * size.width
                 context.fill(
                     Path(ellipseIn: CGRect(
@@ -118,9 +121,13 @@ struct MoonGlyph: View {
                         y: (1 - dot.y) * size.height - radius,
                         width: radius * 2, height: radius * 2
                     )),
-                    with: .color(.primary)
+                    with: .color(color)
                 )
             }
+            for dot in MoonMark.dots(columns: columns, phase: phase) {
+                fill(dot, phase == .awake ? red : .primary)
+            }
+            if phase == .resting { fill(MoonMark.logoDot(columns: columns), red) }
         }
         .accessibilityHidden(true)
     }

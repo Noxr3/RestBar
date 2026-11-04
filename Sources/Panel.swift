@@ -1,8 +1,8 @@
 import SwiftUI
 import AppKit
 
-/// Two rules, from docs/BRAND.md: at most one red thing on screen, and only while
-/// RestBar is holding the Mac awake; and nothing is said twice.
+/// Two rules, from docs/BRAND.md: red belongs to the moon and to keeping the Mac
+/// awake, and nothing is said twice.
 struct Panel: View {
     static let size = NSSize(width: 340, height: 500)
 
@@ -16,7 +16,6 @@ struct Panel: View {
                 Text("RestBar").font(.system(size: 13, weight: .semibold))
                 Spacer()
                 if model.active {
-                    Circle().fill(Color(nsColor: Brand.signal)).frame(width: 6, height: 6)
                     TimelineView(.periodic(from: .now, by: 1)) { context in
                         Text(remaining(context.date))
                             .font(.system(size: 11, weight: .medium, design: .monospaced)).foregroundStyle(.secondary)
@@ -87,7 +86,7 @@ struct Panel: View {
 
         VStack(alignment: .leading, spacing: 10) {
             Toggle(isOn: Binding(get: { model.active }, set: model.toggleAwake)) { sectionTitle("保持唤醒") }
-                .toggleStyle(RowSwitch()).accessibilityIdentifier("keepAwake")
+                .toggleStyle(RowSwitch()).tint(Color(nsColor: Brand.signal)).accessibilityIdentifier("keepAwake")
             Picker("屏幕", selection: Binding(get: { model.mode }, set: model.setMode)) {
                 ForEach(AwakeMode.allCases) { Text($0.rawValue).tag($0) }
             }.pickerStyle(.segmented).labelsHidden()

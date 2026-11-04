@@ -146,7 +146,7 @@ final class PowerController: ObservableObject {
     func setLowPower(_ enabled: Bool) {
         guard !busy, settings.lowPower(selectedProfile) != nil else { return }
         let profile = selectedProfile
-        authorize("/usr/bin/pmset \(profile.argument) lowpowermode \(enabled ? 1 : 0)") { [weak self] in
+        authorize("/usr/bin/pmset \(profile.argument) \(settings.lowPowerKey(profile)) \(enabled ? 1 : 0)") { [weak self] in
             guard let self else { return }
             let result = await Command.asyncRun("/usr/bin/pmset", ["-g", "custom"])
             self.settings = PowerSettings(result.output)

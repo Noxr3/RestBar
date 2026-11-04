@@ -77,9 +77,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
 
     private func updateStatus() {
         guard let button = statusItem?.button else { return }
-        let image = NSImage(systemSymbolName: model.active ? "cup.and.saucer.fill" : "moon.zzz", accessibilityDescription: "RestBar 电源控制")
-        image?.isTemplate = true
-        button.image = image
+        button.image = MoonMark.menuBarImage(phase: model.active ? .awake : .resting)
         button.imagePosition = .imageLeading
         button.title = model.showPercent ? model.battery.percent.map { " \($0)%" } ?? "" : ""
         button.font = .monospacedDigitSystemFont(ofSize: 11, weight: .medium)

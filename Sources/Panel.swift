@@ -4,19 +4,19 @@ import AppKit
 struct Panel: View {
     @ObservedObject var model: PowerController
     @State private var tab = 0
-    private let green = Color(red: 0.19, green: 0.48, blue: 0.38)
+    private let signal = Color(nsColor: Brand.signal)
 
     var body: some View {
         VStack(spacing: 0) {
             HStack(spacing: 10) {
-                Image(systemName: "moon.zzz.fill").font(.system(size: 22)).foregroundStyle(green)
-                    .frame(width: 42, height: 42).background(green.opacity(0.10), in: RoundedRectangle(cornerRadius: 13))
+                MoonGlyph(phase: model.active ? .awake : .resting).frame(width: 26, height: 26)
+                    .frame(width: 42, height: 42).background(Color.primary.opacity(0.06), in: RoundedRectangle(cornerRadius: 13))
                 VStack(alignment: .leading, spacing: 3) {
                     Text("RestBar").font(.system(size: 19, weight: .semibold, design: .rounded))
                     Text("让 Mac 按你的节奏休息").font(.system(size: 11)).foregroundStyle(.secondary)
                 }
                 Spacer()
-                Circle().fill(model.active ? Color.orange : green).frame(width: 7, height: 7)
+                Circle().fill(model.active ? signal : Color.secondary).frame(width: 7, height: 7)
                 Text(model.active ? "唤醒中" : "待机").font(.system(size: 11, weight: .medium)).foregroundStyle(.secondary)
             }.padding(18)
 
@@ -54,7 +54,7 @@ struct Panel: View {
                     Button("打开电池设置") { openBatterySettings() }
                     Button("关于 RestBar") { about() }
                 } label: { Image(systemName: "gearshape").frame(width: 18) }
-                .menuStyle(.borderlessButton).fixedSize().help("偏好设置")
+                .menuStyle(.borderlessButton).fixedSize().tint(.secondary).help("偏好设置")
                 Text("仅在菜单栏运行").font(.system(size: 10)).foregroundStyle(.tertiary)
                 Spacer()
                 Button("退出") { model.cleanup(); NSApp.terminate(nil) }.buttonStyle(.plain).font(.system(size: 11)).disabled(model.busy)
@@ -62,7 +62,7 @@ struct Panel: View {
         }
         .frame(width: 374, height: 710)
         .background(Color(nsColor: .windowBackgroundColor))
-        .tint(green)
+        .tint(Color(nsColor: Brand.signalFill))
     }
 
     @ViewBuilder var controls: some View {
@@ -72,12 +72,12 @@ struct Panel: View {
                     .font(.system(size: 34, weight: .medium, design: .rounded)).monospacedDigit()
                 Spacer()
                 Image(systemName: model.battery.charging ? "battery.100percent.bolt" : "battery.\(batterySymbol)percent")
-                    .font(.system(size: 28)).foregroundStyle(model.battery.percent.map { $0 <= 20 } == true ? Color.orange : green)
+                    .font(.system(size: 28)).foregroundStyle(model.battery.percent.map { $0 <= 20 } == true ? Color.orange : Color.primary)
             }
             if let percent = model.battery.percent {
                 GeometryReader { proxy in
-                    Capsule().fill(green.opacity(0.12))
-                        .overlay(alignment: .leading) { Capsule().fill(green).frame(width: max(0, proxy.size.width * CGFloat(percent) / 100)) }
+                    Capsule().fill(Color.primary.opacity(0.12))
+                        .overlay(alignment: .leading) { Capsule().fill(Color.primary).frame(width: max(0, proxy.size.width * CGFloat(percent) / 100)) }
                 }.frame(height: 5)
             }
             HStack {
@@ -89,14 +89,17 @@ struct Panel: View {
         }.card()
 
         VStack(alignment: .leading, spacing: 12) {
-            Toggle(isOn: Binding(get: { model.active }, set: model.toggleAwake)) {
+            HStack {
                 Label {
                     VStack(alignment: .leading, spacing: 3) {
                         Text("保持唤醒").font(.system(size: 13, weight: .semibold))
                         Text(model.active ? "RestBar 正在阻止自动休眠" : "RestBar 未阻止自动休眠").font(.system(size: 10)).foregroundStyle(.secondary)
                     }
-                } icon: { Image(systemName: model.active ? "cup.and.saucer.fill" : "moon.fill").foregroundStyle(model.active ? Color.orange : green) }
-            }.toggleStyle(.switch).accessibilityIdentifier("keepAwake")
+                } icon: { MoonGlyph(phase: model.active ? .awake : .resting, columns: 9).frame(width: 16, height: 16) }
+                Spacer()
+                Toggle("保持唤醒", isOn: Binding(get: { model.active }, set: model.toggleAwake))
+                    .toggleStyle(.switch).labelsHidden().accessibilityIdentifier("keepAwake")
+            }
             Picker("屏幕", selection: Binding(get: { model.mode }, set: model.setMode)) {
                 ForEach(AwakeMode.allCases) { Text($0.rawValue).tag($0) }
             }.pickerStyle(.segmented).labelsHidden()
@@ -115,7 +118,7 @@ struct Panel: View {
             if model.active {
                 TimelineView(.periodic(from: .now, by: 1)) { context in
                     Label(remaining(context.date), systemImage: "timer")
-                        .font(.system(size: 11, weight: .medium, design: .monospaced)).foregroundStyle(green)
+                        .font(.system(size: 11, weight: .medium, design: .monospaced)).foregroundStyle(signal)
                 }
             }
             Text("退出应用即释放。合盖仍按 macOS 规则休眠。")
@@ -131,10 +134,14 @@ struct Panel: View {
             Picker("电源场景", selection: $model.selectedProfile) {
                 ForEach(PowerProfile.allCases) { Text($0.rawValue).tag($0) }
             }.pickerStyle(.segmented).labelsHidden().disabled(model.busy)
-            Toggle(isOn: Binding(get: { model.settings.lowPower(model.selectedProfile) ?? false }, set: model.setLowPower)) {
+            HStack {
                 Text(model.settings.lowPower(model.selectedProfile) == nil ? "此场景不可用或未读取到" : "降低能耗，优先续航")
                     .font(.system(size: 12))
-            }.toggleStyle(.switch).disabled(model.busy || model.settings.lowPower(model.selectedProfile) == nil)
+                Spacer()
+                Toggle("低电量模式", isOn: Binding(get: { model.settings.lowPower(model.selectedProfile) ?? false }, set: model.setLowPower))
+                    .toggleStyle(.switch).labelsHidden()
+                    .disabled(model.busy || model.settings.lowPower(model.selectedProfile) == nil)
+            }
             Text("修改需要系统授权，退出应用后设置仍保留。")
                 .font(.system(size: 10)).foregroundStyle(.secondary)
         }.card()
@@ -160,7 +167,7 @@ struct Panel: View {
                         .font(.system(size: 11)).foregroundStyle(.secondary)
                     Button("恢复系统休眠…", action: model.restoreSystemSleep).disabled(model.busy)
                 } else if model.globalSleepDisabled == false {
-                    Label("系统允许休眠", systemImage: "checkmark.circle.fill").foregroundStyle(green)
+                    Label("系统允许休眠", systemImage: "checkmark.circle.fill").foregroundStyle(.primary)
                 } else {
                     Text("系统休眠策略尚未确认").foregroundStyle(.secondary)
                 }

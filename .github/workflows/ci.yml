@@ -29,10 +29,10 @@ jobs:
           plutil -lint dist/RestBar.app/Contents/Info.plist
           codesign --verify --strict dist/RestBar.app
       - name: Package application
-        run: ditto -c -k --sequesterRsrc --keepParent dist/RestBar.app RestBar-arm64.zip
+        run: ditto -c -k --sequesterRsrc --keepParent dist/RestBar.app RestBar.zip
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: RestBar-arm64
-          path: RestBar-arm64.zip
+          name: RestBar
+          path: RestBar.zip
           if-no-files-found: error
           retention-days: 14

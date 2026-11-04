@@ -59,7 +59,7 @@ struct Icon {
             NSRect(x: 0, y: 0, width: 1280, height: 640).fill()
             MoonMark.draw(in: NSRect(x: 110, y: 190, width: 260, height: 260), columns: 11, phase: .resting, ink: Brand.white, logoDot: Brand.markRed)
             text("RestBar", at: NSPoint(x: 424, y: 288), font: wordmark(150), color: Brand.white)
-            text("Let your Mac rest on your schedule.", at: NSPoint(x: 432, y: 236), font: .systemFont(ofSize: 30), color: Brand.white.withAlphaComponent(0.62))
+            text("Keep your Mac awake while your agents work.", at: NSPoint(x: 432, y: 236), font: .systemFont(ofSize: 30), color: Brand.white.withAlphaComponent(0.62))
         }
     }
 

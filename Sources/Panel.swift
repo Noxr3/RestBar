@@ -4,7 +4,7 @@ import AppKit
 /// Two rules, from docs/BRAND.md: red belongs to the moon and to keeping the Mac
 /// awake, and nothing is said twice.
 struct Panel: View {
-    static let size = NSSize(width: 340, height: 420)
+    static let size = NSSize(width: 340, height: 470)
 
     @ObservedObject var model: PowerController
     @State private var tab = 0
@@ -51,6 +51,9 @@ struct Panel: View {
                     Toggle(L("Start at login"), isOn: Binding(get: { model.loginEnabled }, set: { model.setLogin($0) }))
                     if model.loginNeedsApproval {
                         Button(L("Allow start at login in System Settings")) { SMSettings.openLogin() }
+                    }
+                    if model.lidRuleInstalled {
+                        Button(L("Remove lid-closed permission…"), action: model.removeLidPermission).disabled(model.busy)
                     }
                     Divider()
                     ForEach(PowerProfile.allCases) { profile in
@@ -108,6 +111,9 @@ struct Panel: View {
                 Text(L("2 hours")).tag(120)
                 Text(L("4 hours")).tag(240)
             }.labelsHidden()
+            Toggle(L("Automatically while an agent is working"), isOn: $model.agentMode)
+            Toggle(L("Keep running with the lid closed"), isOn: Binding(get: { model.lidMode }, set: model.setLidMode))
+                .disabled(model.busy)
             Toggle(L("Stop at 20% battery when not charging"), isOn: $model.lowBatteryGuard)
             Toggle(L("Only while plugged in"), isOn: $model.onlyAC)
         }.font(.system(size: 12)).toggleStyle(.checkbox)
@@ -124,7 +130,10 @@ struct Panel: View {
         VStack(alignment: .leading, spacing: 14) {
             VStack(alignment: .leading, spacing: 8) {
                 sectionTitle(L("System sleep policy"))
-                if model.globalSleepDisabled == true {
+                if model.globalSleepDisabled == true && model.holdingLid {
+                    Text(L("Sleep is off so your Mac keeps running with the lid closed. It comes back when RestBar stops."))
+                        .font(.system(size: 11)).foregroundStyle(.secondary)
+                } else if model.globalSleepDisabled == true {
                     Text(L("Sleep is disabled system-wide. Your Mac may not sleep even after RestBar stops."))
                         .font(.system(size: 11)).foregroundStyle(.orange)
                     Button(L("Restore System Sleep…"), action: model.restoreSystemSleep).buttonStyle(QuietButton()).disabled(model.busy)
@@ -135,6 +144,18 @@ struct Panel: View {
                 if let profile = model.settings.profiles[current.section] {
                     if let sleep = profile["sleep"] { settingsRow(L("Automatic sleep"), idle(sleep)) }
                     if let display = profile["displaysleep"] { settingsRow(L("Turn display off"), idle(display)) }
+                }
+            }
+
+            Divider()
+
+            VStack(alignment: .leading, spacing: 8) {
+                sectionTitle(L("Agents"))
+                if model.agents.isEmpty {
+                    Text(L("None running")).font(.system(size: 11)).foregroundStyle(.secondary)
+                }
+                ForEach(agentRows, id: \.name) { row in
+                    settingsRow(row.name, row.working ? L("Working") : String(format: L("Idle (%d open)"), row.count))
                 }
             }
 
@@ -167,6 +188,11 @@ struct Panel: View {
         }
     }
 
+    private var agentRows: [(name: String, count: Int, working: Bool)] {
+        Dictionary(grouping: model.agents, by: \.name)
+            .map { (name: $0.key, count: $0.value.count, working: model.workingAgents.contains($0.key)) }
+            .sorted { $0.name < $1.name }
+    }
     private var batteryLine: String {
         [model.battery.description, model.battery.estimate].compactMap { $0 }.joined(separator: " · ")
     }
@@ -177,6 +203,7 @@ struct Panel: View {
         minutes == 0 ? L("Never") : String(format: L("After %d idle minutes"), minutes)
     }
     private func remaining(_ date: Date) -> String {
+        if model.source == .agent { return model.workingAgents.joined(separator: ", ") }
         guard let deadline = model.deadline else { return L("Awake") }
         let seconds = max(0, Int(deadline.timeIntervalSince(date)))
         return String(format: "%02d:%02d:%02d", seconds / 3600, seconds / 60 % 60, seconds % 60)
@@ -192,7 +219,7 @@ struct Panel: View {
         NSApp.activate(ignoringOtherApps: true)
         NSApp.orderFrontStandardAboutPanel(options: [
             .applicationName: "RestBar",
-            .applicationVersion: "1.0",
+            .applicationVersion: Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "",
             .credits: NSAttributedString(string: L("Runs on your Mac, with no network requests.\nKeep-awake is temporary, and closing the lid still follows macOS rules.\nLow Power Mode is a system setting and stays changed after you quit.")),
         ])
     }

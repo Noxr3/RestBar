@@ -25,6 +25,10 @@ Before opening a pull request:
 - Try the change in the real app, and say in the pull request what you tried and on which Mac. If you changed how the app looks, include a screenshot.
 - Regenerate the README screenshots with `bash scripts/screenshots.sh` if the panel changed visibly.
 
+## Adding an agent
+
+Add its program name to `binaries` in `Sources/AgentWatch.swift`, and its npm package to `packages` if it runs under an interpreter, with a case in `Tests/main.swift`. Names match exactly, so a desktop app called `Claude` isn't mistaken for the `claude` command.
+
 ## Translating
 
 RestBar follows the system language, and every word goes through `L("English text")`, with the English as the key. Translations live in `Resources/<language>.lproj/Localizable.strings`.
@@ -34,7 +38,7 @@ RestBar follows the system language, and every word goes through `L("English tex
 
 ## What fits
 
-RestBar stays small on purpose. It has no third-party dependencies, makes no network requests, collects no data and has no background helper. Proposals that would change any of those will almost certainly be declined, however good they are. Charge limits and fan control are out of scope too.
+RestBar stays small on purpose. It has no third-party dependencies, makes no network requests, collects no data and installs no background helper. Proposals that would change any of those will almost certainly be declined, however good they are. Charge limits and fan control are out of scope too.
 
 Commands that run with administrator rights must stay fixed strings built only from internal values, never from user input or anything read from the system.
 

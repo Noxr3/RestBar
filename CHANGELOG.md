@@ -1,9 +1,10 @@
 # Changelog
 
-## Unreleased
+## 1.1.0
 
 ### Fixed
 
+- The diagnostics tab said the system sleep policy was unconfirmed whenever sleep was allowed, because macOS leaves that line out.
 - Low Power Mode could not be used on Macs that report `powermode` instead of `lowpowermode`, such as those with High Power Mode. The switch stayed disabled with "not available".
 
 ### Changed
@@ -19,9 +20,11 @@
 
 ### Added
 
+- RestBar now keeps your Mac awake automatically while a coding agent is working, and lets it sleep when the agent is done.
+- It can keep running with the lid closed, if you turn that on. Sleep comes back when it stops, quits or crashes, and it stops by itself at 20% battery or if the Mac runs hot.
+- Signed, notarized, universal releases, with a Homebrew cask, a one-line installer and a DMG.
 - English, Simplified Chinese and Traditional Chinese, following the system language.
 - MIT license, contribution and security guides, and a brand guide.
-- A release workflow that creates a draft release from a version tag.
 
 ## 1.0
 

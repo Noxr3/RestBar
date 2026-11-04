@@ -23,7 +23,7 @@ The keep-awake switch is drawn by RestBar rather than macOS, because on and off 
 ## Name and line
 
 - **RestBar**: one word, capital R and B. There is no separate Chinese name.
-- **Line:** Let your Mac rest on your schedule. / 让 Mac 按你的节奏休息
+- **Line:** Keep your Mac awake while your agents work. / Agent 跑着时，别让 Mac 睡
 
 ## Colour
 

@@ -33,7 +33,7 @@ struct PanelShot {
         RunLoop.main.run(until: Date().addingTimeInterval(2.5))
 
         func shot(_ name: String, _ appearance: NSAppearance.Name) {
-            let size = NSSize(width: 374, height: 710)
+            let size = Panel.size
             let host = NSHostingView(rootView: Panel(model: model).frame(width: size.width, height: size.height))
             host.frame = NSRect(origin: .zero, size: size)
             let window = ShotWindow(contentRect: host.frame, styleMask: [.borderless], backing: .buffered, defer: false)

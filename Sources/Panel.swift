@@ -4,7 +4,7 @@ import AppKit
 /// Two rules, from docs/BRAND.md: red belongs to the moon and to keeping the Mac
 /// awake, and nothing is said twice.
 struct Panel: View {
-    static let size = NSSize(width: 340, height: 500)
+    static let size = NSSize(width: 340, height: 420)
 
     @ObservedObject var model: PowerController
     @State private var tab = 0
@@ -23,9 +23,9 @@ struct Panel: View {
                 }
             }.padding(.horizontal, 16).padding(.top, 14).padding(.bottom, 10)
 
-            Picker("页面", selection: $tab) {
-                Text("电源").tag(0)
-                Text("诊断").tag(1)
+            Picker(L("Page"), selection: $tab) {
+                Text(L("Power")).tag(0)
+                Text(L("Diagnostics")).tag(1)
             }.pickerStyle(.segmented).labelsHidden().padding(.horizontal, 16).padding(.bottom, 12)
 
             ScrollView {
@@ -38,7 +38,7 @@ struct Panel: View {
                         HStack(alignment: .top) {
                             Text(error).foregroundStyle(.orange).textSelection(.enabled)
                             Spacer(minLength: 0)
-                            Button { model.error = nil } label: { Image(systemName: "xmark") }.buttonStyle(.plain).help("关闭错误提示")
+                            Button { model.error = nil } label: { Image(systemName: "xmark") }.buttonStyle(.plain).help(L("Dismiss error"))
                         }.font(.system(size: 11))
                     }
                 }.padding(.horizontal, 16).padding(.bottom, 14).frame(maxWidth: .infinity, alignment: .leading)
@@ -47,18 +47,26 @@ struct Panel: View {
             Divider()
             HStack {
                 Menu {
-                    Toggle("在菜单栏显示电量", isOn: $model.showPercent)
-                    Toggle("登录时启动", isOn: Binding(get: { model.loginEnabled }, set: model.setLogin))
+                    Toggle(L("Show battery in menu bar"), isOn: $model.showPercent)
+                    Toggle(L("Start at login"), isOn: Binding(get: { model.loginEnabled }, set: { model.setLogin($0) }))
                     if model.loginNeedsApproval {
-                        Button("在系统设置中允许登录启动") { SMSettings.openLogin() }
+                        Button(L("Allow start at login in System Settings")) { SMSettings.openLogin() }
                     }
                     Divider()
-                    Button("打开电池设置") { openBatterySettings() }
-                    Button("关于 RestBar") { about() }
+                    ForEach(PowerProfile.allCases) { profile in
+                        if let on = model.settings.lowPower(profile) {
+                            Toggle(profile == .battery ? L("Low Power Mode on battery") : L("Low Power Mode when plugged in"),
+                                   isOn: Binding(get: { on }, set: { model.setLowPower(profile, $0) }))
+                                .disabled(model.busy)
+                        }
+                    }
+                    Button(L("Battery Settings…")) { openBatterySettings() }
+                    Divider()
+                    Button(L("About RestBar")) { about() }
                 } label: { Image(systemName: "gearshape").frame(width: 18) }
-                .menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize().help("偏好设置")
+                .menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize().help(L("Preferences"))
                 Spacer()
-                Button("退出") { model.cleanup(); NSApp.terminate(nil) }.buttonStyle(.plain).font(.system(size: 11)).foregroundStyle(.secondary).disabled(model.busy)
+                Button(L("Quit")) { model.cleanup(); NSApp.terminate(nil) }.buttonStyle(.plain).font(.system(size: 11)).foregroundStyle(.secondary).disabled(model.busy)
             }.padding(.horizontal, 16).padding(.vertical, 10)
         }
         .frame(width: Self.size.width, height: Self.size.height)
@@ -85,64 +93,48 @@ struct Panel: View {
         Divider()
 
         VStack(alignment: .leading, spacing: 10) {
-            Toggle(isOn: Binding(get: { model.active }, set: model.toggleAwake)) { sectionTitle("保持唤醒") }
-                .toggleStyle(RowSwitch()).tint(Color(nsColor: Brand.signal)).accessibilityIdentifier("keepAwake")
-            Picker("屏幕", selection: Binding(get: { model.mode }, set: model.setMode)) {
-                ForEach(AwakeMode.allCases) { Text($0.rawValue).tag($0) }
+            Toggle(isOn: Binding(get: { model.active }, set: model.toggleAwake)) {
+                Text(L("Keep Awake")).font(.system(size: 13, weight: .medium))
+            }
+            .toggleStyle(AwakeSwitch()).accessibilityIdentifier("keepAwake")
+            Picker(L("Display"), selection: Binding(get: { model.mode }, set: model.setMode)) {
+                ForEach(AwakeMode.allCases) { Text($0.title).tag($0) }
             }.pickerStyle(.segmented).labelsHidden()
-            Picker("持续时间", selection: Binding(get: { model.duration }, set: model.setDuration)) {
-                Text("15 分钟").tag(15)
-                Text("30 分钟").tag(30)
-                Text("1 小时").tag(60)
-                Text("2 小时").tag(120)
-                Text("4 小时").tag(240)
-                Text("直到手动关闭").tag(0)
+            Picker(L("Duration"), selection: Binding(get: { model.duration }, set: model.setDuration)) {
+                Text(L("Until turned off")).tag(0)
+                Text(L("15 minutes")).tag(15)
+                Text(L("30 minutes")).tag(30)
+                Text(L("1 hour")).tag(60)
+                Text(L("2 hours")).tag(120)
+                Text(L("4 hours")).tag(240)
             }.labelsHidden()
-            Toggle("电量 ≤ 20% 且未充电时停止", isOn: $model.lowBatteryGuard)
-            Toggle("仅接通电源时保持唤醒", isOn: $model.onlyAC)
+            Toggle(L("Stop at 20% battery when not charging"), isOn: $model.lowBatteryGuard)
+            Toggle(L("Only while plugged in"), isOn: $model.onlyAC)
         }.font(.system(size: 12)).toggleStyle(.checkbox)
 
         Divider()
 
-        VStack(alignment: .leading, spacing: 10) {
-            Toggle(isOn: Binding(get: { model.settings.lowPower(model.selectedProfile) ?? false }, set: model.setLowPower)) {
-                HStack(spacing: 6) {
-                    sectionTitle("低电量模式")
-                    if model.busy { ProgressView().controlSize(.mini) }
-                }
-            }
-            .toggleStyle(RowSwitch())
-            .disabled(model.busy || model.settings.lowPower(model.selectedProfile) == nil)
-            Picker("电源场景", selection: $model.selectedProfile) {
-                ForEach(PowerProfile.allCases) { Text($0.rawValue).tag($0) }
-            }.pickerStyle(.segmented).labelsHidden().disabled(model.busy)
-            if model.settings.lowPower(model.selectedProfile) == nil {
-                Text("此场景不可用或未读取到").font(.system(size: 11)).foregroundStyle(.secondary)
-            }
-        }
-
-        Divider()
-
         HStack(spacing: 8) {
-            Button(action: model.displayOff) { Text("关闭屏幕").frame(maxWidth: .infinity) }
-            Button(action: model.sleepNow) { Text("立即休眠…").frame(maxWidth: .infinity) }
-        }.disabled(model.busy)
+            Button(L("Turn Off Display"), action: model.displayOff)
+            Button(L("Sleep Now…"), action: model.sleepNow)
+        }.buttonStyle(QuietButton()).disabled(model.busy)
     }
 
     var diagnostics: some View {
         VStack(alignment: .leading, spacing: 14) {
             VStack(alignment: .leading, spacing: 8) {
-                sectionTitle("系统休眠策略")
+                sectionTitle(L("System sleep policy"))
                 if model.globalSleepDisabled == true {
-                    Text("系统全局禁止了休眠。关闭 RestBar 后，系统仍可能无法休眠。").font(.system(size: 11)).foregroundStyle(.orange)
-                    Button("恢复系统休眠…", action: model.restoreSystemSleep).disabled(model.busy)
+                    Text(L("Sleep is disabled system-wide. Your Mac may not sleep even after RestBar stops."))
+                        .font(.system(size: 11)).foregroundStyle(.orange)
+                    Button(L("Restore System Sleep…"), action: model.restoreSystemSleep).buttonStyle(QuietButton()).disabled(model.busy)
                 } else if model.globalSleepDisabled == nil {
-                    Text("尚未确认").font(.system(size: 11)).foregroundStyle(.secondary)
+                    Text(L("Not confirmed yet")).font(.system(size: 11)).foregroundStyle(.secondary)
                 }
                 let current: PowerProfile = model.battery.onAC ? .adapter : .battery
                 if let profile = model.settings.profiles[current.section] {
-                    if let sleep = profile["sleep"] { settingsRow("自动休眠", sleep == 0 ? "从不" : "闲置 \(sleep) 分钟") }
-                    if let display = profile["displaysleep"] { settingsRow("关闭屏幕", display == 0 ? "从不" : "闲置 \(display) 分钟") }
+                    if let sleep = profile["sleep"] { settingsRow(L("Automatic sleep"), idle(sleep)) }
+                    if let display = profile["displaysleep"] { settingsRow(L("Turn display off"), idle(display)) }
                 }
             }
 
@@ -150,13 +142,13 @@ struct Panel: View {
 
             VStack(alignment: .leading, spacing: 10) {
                 HStack {
-                    sectionTitle("谁在阻止自动休眠")
+                    sectionTitle(L("What's preventing sleep"))
                     Spacer()
                     Button { Task { await model.refresh() } } label: { Image(systemName: "arrow.clockwise") }
-                        .buttonStyle(.plain).foregroundStyle(.secondary).help("刷新诊断")
+                        .buttonStyle(.plain).foregroundStyle(.secondary).help(L("Refresh"))
                 }
                 if model.blockers.isEmpty {
-                    Text(model.lastRefresh == nil ? "正在读取…" : "没有").font(.system(size: 11)).foregroundStyle(.secondary)
+                    Text(model.lastRefresh == nil ? L("Reading…") : L("Nothing")).font(.system(size: 11)).foregroundStyle(.secondary)
                 }
                 ForEach(model.blockers) { blocker in
                     VStack(alignment: .leading, spacing: 2) {
@@ -164,28 +156,28 @@ struct Panel: View {
                         Text(blocker.reason).font(.system(size: 10)).foregroundStyle(.secondary).lineLimit(3).textSelection(.enabled)
                     }
                 }
-                Text("关闭开关只释放 RestBar 自己的请求。").font(.system(size: 10)).foregroundStyle(.secondary)
+                Text(L("The switch only releases RestBar's own request.")).font(.system(size: 10)).foregroundStyle(.secondary)
             }
 
             Divider()
 
-            Button {
+            Button(L("Open Activity Monitor")) {
                 NSWorkspace.shared.openApplication(at: URL(fileURLWithPath: "/System/Applications/Utilities/Activity Monitor.app"), configuration: .init())
-            } label: { Text("打开活动监视器").frame(maxWidth: .infinity) }
+            }.buttonStyle(QuietButton())
         }
     }
 
-    /// The estimate only when macOS actually gave one: the placeholder sentences say nothing.
     private var batteryLine: String {
-        let battery = model.battery
-        guard battery.minutesRemaining != nil, !(battery.onAC && !battery.charging) else { return battery.description }
-        return "\(battery.description) · \(battery.estimate)"
+        [model.battery.description, model.battery.estimate].compactMap { $0 }.joined(separator: " · ")
     }
     private func sectionTitle(_ title: String) -> some View {
         Text(title).font(.system(size: 13, weight: .medium))
     }
+    private func idle(_ minutes: Int) -> String {
+        minutes == 0 ? L("Never") : String(format: L("After %d idle minutes"), minutes)
+    }
     private func remaining(_ date: Date) -> String {
-        guard let deadline = model.deadline else { return "唤醒中" }
+        guard let deadline = model.deadline else { return L("Awake") }
         let seconds = max(0, Int(deadline.timeIntervalSince(date)))
         return String(format: "%02d:%02d:%02d", seconds / 3600, seconds / 60 % 60, seconds % 60)
     }
@@ -198,20 +190,58 @@ struct Panel: View {
     private func about() {
         model.closePanel?()
         NSApp.activate(ignoringOtherApps: true)
-        NSApp.orderFrontStandardAboutPanel(options: [.applicationName: "RestBar", .applicationVersion: "1.0", .credits: NSAttributedString(string: "一个轻量的菜单栏电源助手。\n本地运行，无网络请求。\n保持唤醒是临时的，合盖仍按 macOS 规则休眠。\n低电量模式是系统设置，退出后仍保留。")])
+        NSApp.orderFrontStandardAboutPanel(options: [
+            .applicationName: "RestBar",
+            .applicationVersion: "1.0",
+            .credits: NSAttributedString(string: L("Runs on your Mac, with no network requests.\nKeep-awake is temporary, and closing the lid still follows macOS rules.\nLow Power Mode is a system setting and stays changed after you quit.")),
+        ])
     }
 }
 
 import ServiceManagement
 enum SMSettings { static func openLogin() { SMAppService.openSystemSettingsLoginItems() } }
 
-/// A title on the left and a small switch on the right edge.
-private struct RowSwitch: ToggleStyle {
+/// Drawn rather than the system switch, because the two states have to be told apart
+/// at a glance: on is solid red with a white knob on the right; off is a hollow
+/// outline with a grey knob on the left.
+private struct AwakeSwitch: ToggleStyle {
     func makeBody(configuration: Configuration) -> some View {
         HStack {
             configuration.label
             Spacer()
-            Toggle("", isOn: configuration.$isOn).toggleStyle(.switch).controlSize(.small).labelsHidden()
+            Button {
+                withAnimation(.easeOut(duration: 0.12)) { configuration.isOn.toggle() }
+            } label: {
+                ZStack(alignment: configuration.isOn ? .trailing : .leading) {
+                    RoundedRectangle(cornerRadius: 12).fill(configuration.isOn ? Color(nsColor: Brand.signal) : Color.clear)
+                    RoundedRectangle(cornerRadius: 12).strokeBorder(Color.primary.opacity(configuration.isOn ? 0 : 0.4), lineWidth: 1.5)
+                    Circle()
+                        .fill(configuration.isOn ? Color.white : Color.primary.opacity(0.55))
+                        .frame(width: 16, height: 16)
+                        .padding(4)
+                }
+                .frame(width: 44, height: 24)
+                .contentShape(RoundedRectangle(cornerRadius: 12))
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(L("Keep Awake"))
+            .accessibilityValue(configuration.isOn ? L("On") : L("Off"))
         }
+    }
+}
+
+/// A flat button that reads as available. The system bordered style renders so faintly
+/// in a popover on macOS 26 that these looked disabled.
+private struct QuietButton: ButtonStyle {
+    @Environment(\.isEnabled) private var isEnabled
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(.system(size: 12))
+            .foregroundStyle(isEnabled ? Color.primary : Color.secondary)
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 6)
+            .background(Color.primary.opacity(configuration.isPressed ? 0.16 : 0.08), in: RoundedRectangle(cornerRadius: 7))
+            .contentShape(RoundedRectangle(cornerRadius: 7))
     }
 }

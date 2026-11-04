@@ -17,6 +17,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         }
         NSApp.setActivationPolicy(.accessory)
         model = PowerController()
+        model.applyLoginDefault()
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         statusItem.button?.target = self
         statusItem.button?.action = #selector(clicked)
@@ -40,16 +41,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
     @objc private func clicked() {
         if NSApp.currentEvent?.type == .rightMouseUp {
             let menu = NSMenu()
-            let open = NSMenuItem(title: "打开 RestBar", action: #selector(showFromMenu), keyEquivalent: "")
+            let open = NSMenuItem(title: L("Open RestBar"), action: #selector(showFromMenu), keyEquivalent: "")
             open.target = self
             menu.addItem(open)
             if model.active {
-                let stop = NSMenuItem(title: "停止保持唤醒", action: #selector(stopFromMenu), keyEquivalent: "")
+                let stop = NSMenuItem(title: L("Stop Keeping Awake"), action: #selector(stopFromMenu), keyEquivalent: "")
                 stop.target = self
                 menu.addItem(stop)
             }
             menu.addItem(.separator())
-            let quit = NSMenuItem(title: "退出 RestBar", action: #selector(quitFromMenu), keyEquivalent: "q")
+            let quit = NSMenuItem(title: L("Quit RestBar"), action: #selector(quitFromMenu), keyEquivalent: "q")
             quit.target = self
             quit.isEnabled = !model.busy
             menu.autoenablesItems = false
@@ -61,7 +62,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         else { showPanel() }
     }
     @objc private func showFromMenu() { showPanel() }
-    @objc private func stopFromMenu() { model.stop("已释放 RestBar 的防休眠请求") }
+    @objc private func stopFromMenu() { model.stop(L("RestBar released its keep-awake request.")) }
     @objc private func quitFromMenu() { NSApp.terminate(nil) }
 
     private func showPanel() {
@@ -81,7 +82,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         button.imagePosition = .imageLeading
         button.title = model.showPercent ? model.battery.percent.map { " \($0)%" } ?? "" : ""
         button.font = .monospacedDigitSystemFont(ofSize: 11, weight: .medium)
-        button.toolTip = "RestBar · \(model.active ? "保持唤醒中" : "未阻止休眠") · \(model.battery.description)"
+        button.toolTip = "RestBar · \(model.active ? L("Keeping awake") : L("Not preventing sleep")) · \(model.battery.description)"
         button.setAccessibilityLabel(button.toolTip)
     }
 

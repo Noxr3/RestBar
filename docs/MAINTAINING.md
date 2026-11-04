@@ -16,13 +16,14 @@ The copyright is held by Brad personally, as `LICENSE` and `NSHumanReadableCopyr
 
 CI cannot do these: they need real hardware or a password.
 
-- [ ] Low Power Mode turns on and off for battery and for external power, and the panel reads the new value back.
+- [ ] Low Power Mode turns on and off for battery and for external power from the gear menu, and the menu shows the new value afterwards.
 - [ ] On a Mac that reports `powermode` (those with High Power Mode) and on one that reports `lowpowermode`.
 - [ ] Restoring a system-wide sleep disable works, and cancelling the password prompt changes nothing.
 - [ ] Turn off display, and immediate sleep after its confirmation.
-- [ ] Start at login turns on and off, including the approval step in System Settings.
+- [ ] A first launch from Applications adds the login item once. Turning it off under the gear menu survives a relaunch and a reinstall. The approval step in System Settings works.
 - [ ] Keep-awake stops on unplug and at 20% when those options are on.
 - [ ] While awake, the moon is a red disc in the menu bar and the panel, and the keep-awake switch is red. No other control in the real panel is red.
+- [ ] The panel appears in each language: change the system language, or run `open RestBar.app --args -AppleLanguages '(zh-Hant)'`.
 - [ ] `bash test.sh --integration` passes.
 
 ## Releasing

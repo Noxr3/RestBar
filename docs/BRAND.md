@@ -4,7 +4,7 @@ RestBar follows the visual language of [Dokki](https://dokki.one): monochrome, f
 
 ## Two rules
 
-1. **Red belongs to the moon and to keeping the Mac awake.** At rest there is one red dot, in the moon's mouth. While awake the moon itself turns red, in the menu bar and the panel, and so does the switch that holds it there. Nothing else is red: not other switches, not checkboxes, not text, not warnings.
+1. **Red belongs to the moon and to keeping the Mac awake.** At rest there is one red dot, in the moon's mouth. While awake the moon itself turns red, in the menu bar and the panel, and so does the switch that holds it there. Nothing else is red: not checkboxes, not text, not warnings.
 2. **Nothing is said twice.** If the timer shows the Mac is awake, no icon, subtitle or status word says so again. Before adding an element, ask what it says that nothing else on screen already does.
 
 ## The moon
@@ -15,6 +15,10 @@ The moon has two phases, and they are the product's two states.
 | --- | --- |
 | At rest | A crescent with one red dot |
 | Awake | The full disc, in red |
+
+## The switch
+
+The keep-awake switch is drawn by RestBar rather than macOS, because on and off have to be told apart at a glance. On is solid red with a white knob on the right. Off is a hollow outline with a grey knob on the left.
 
 ## Name and line
 
@@ -29,7 +33,7 @@ The moon has two phases, and they are the product's two states.
 | White | `#FFFFFF` | Ink on Paper |
 | Logo red | `#F50233` | The moon's dot on the icon and brand images |
 | Signal | `#ED0031` on light, `#FF1748` on dark | The moon and the keep-awake switch in the app |
-| Control tint | `#191919` on light, `#8A8A8A` on dark | Every other checked switch and box |
+| Control tint | `#191919` on light, `#8A8A8A` on dark | Checked boxes |
 
 Everything else in the app is the macOS system colour for that role, so it follows light and dark. Orange is for warnings and errors only, because red is taken.
 
@@ -62,6 +66,6 @@ Calm and exact, like a good instrument. Say what happens to the Mac in plain wor
 | Path | Regenerate with |
 | --- | --- |
 | `AppIcon.icns`, `assets/brand/*` | `scripts/Icon.swift` (instructions at the top of the file) |
-| `assets/screenshots/*` | `scripts/PanelShot.swift` (instructions at the top of the file) |
+| `assets/screenshots/*` | `bash scripts/screenshots.sh` |
 
 GitHub's social card is `assets/brand/social-preview.png`. It has to be uploaded by hand under Settings → General → Social preview.

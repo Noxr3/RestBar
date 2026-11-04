@@ -9,23 +9,25 @@
 
 <p align="center"><a href="README.md">English</a></p>
 
-RestBar 是一个原生 macOS 菜单栏小工具。它让 Mac 在你选定的时间内保持唤醒，并且会自己停下来：时间到了、拔掉电源或电量偏低时都会停止。它还能告诉你是什么在阻止 Mac 休眠，并管理低电量模式。
+RestBar 是一个原生 macOS 菜单栏小工具。它让 Mac 保持唤醒，直到你手动关闭或设定的时间结束，也可以在拔掉电源或电量偏低时自动停止。它还能告诉你是什么在阻止 Mac 休眠。
 
 不需要账号，不联网，不收集数据，没有第三方依赖。整个应用不到 900 行 Swift，一个下午就能读完。
 
+RestBar 跟随系统语言：英文、简体中文或繁体中文，其他语言显示英文。
+
 | 待机 | 唤醒中 |
 | --- | --- |
-| <picture><source media="(prefers-color-scheme: dark)" srcset="assets/screenshots/panel-resting-dark.png"><img src="assets/screenshots/panel-resting-light.png" alt="RestBar 待机时的面板" width="340"></picture> | <picture><source media="(prefers-color-scheme: dark)" srcset="assets/screenshots/panel-awake-dark.png"><img src="assets/screenshots/panel-awake-light.png" alt="RestBar 保持唤醒时的面板" width="340"></picture> |
+| <picture><source media="(prefers-color-scheme: dark)" srcset="assets/screenshots/zh-Hans/panel-resting-dark.png"><img src="assets/screenshots/zh-Hans/panel-resting-light.png" alt="RestBar 待机时的面板" width="340"></picture> | <picture><source media="(prefers-color-scheme: dark)" srcset="assets/screenshots/zh-Hans/panel-awake-dark.png"><img src="assets/screenshots/zh-Hans/panel-awake-light.png" alt="RestBar 保持唤醒时的面板" width="340"></picture> |
 
 ## 功能
 
 - **保持唤醒**：可以让屏幕熄灭，也可以让屏幕一起常亮。
-- **自动停止**：15 / 30 分钟、1 / 2 / 4 小时，或直到手动关闭。
+- **默认直到手动关闭**，也可以选 15 / 30 分钟、1 / 2 / 4 小时。
 - **保护电池**：可选在拔掉电源、或电量不高于 20% 且未充电时停止。
 - **休眠诊断**：查看阻止自动休眠的应用和系统休眠策略。
-- **低电量模式**：分别管理使用电池和接通电源时的设置。
+- **低电量模式**：在设置菜单里分别管理使用电池和接通电源时的设置。
 - **关闭屏幕或立即休眠**，休眠前会先确认。
-- **可选登录时启动**，可选在菜单栏显示电量。
+- **登录时启动**，可选在菜单栏显示电量。
 
 ## 安装
 
@@ -46,7 +48,8 @@ RestBar 没有窗口。菜单栏放满时，macOS 会把新图标藏到刘海后
 
 ## 使用须知
 
-- **启动 RestBar 不会改变任何东西**，保持唤醒默认关闭。
+- **保持唤醒默认关闭**，启动 RestBar 不会改变 Mac 的休眠行为。
+- **默认登录时启动**。第一次从“应用程序”文件夹打开时，RestBar 会把自己加入登录项，macOS 会提示你。在齿轮菜单里关闭后不会再自动开启。
 - **保持唤醒不会比应用活得更久**。它用的是 macOS 的临时电源请求，到时间或应用退出时就会释放，应用崩溃也一样。关闭面板不会结束正在进行的唤醒。
 - **合盖和主动休眠**仍然按 macOS 的规则进行。
 - **RestBar 只释放自己的请求**。其他应用可能仍在阻止休眠，可以在“休眠诊断”里查看。

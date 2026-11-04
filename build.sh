@@ -8,6 +8,8 @@ mkdir -p build/module-cache dist/RestBar.app/Contents/MacOS dist/RestBar.app/Con
   -framework AppKit -framework SwiftUI -framework IOKit -framework ServiceManagement
 cp Info.plist dist/RestBar.app/Contents/Info.plist
 if [ -f AppIcon.icns ]; then cp AppIcon.icns dist/RestBar.app/Contents/Resources/; fi
+rm -rf dist/RestBar.app/Contents/Resources/*.lproj
+cp -R Resources/*.lproj dist/RestBar.app/Contents/Resources/
 /usr/bin/codesign --force --sign - --identifier io.github.noxr3.restbar dist/RestBar.app
 /usr/bin/codesign --verify --strict dist/RestBar.app
 echo "Built: $PWD/dist/RestBar.app"

@@ -85,6 +85,56 @@ check(!LoginDefault.shouldEnable(decided: true, bundlePath: "/Applications/RestB
 check(!LoginDefault.shouldEnable(decided: false, bundlePath: "\(home)/RestBar/dist/RestBar.app", home: home), "A build folder never becomes a login item")
 check(!LoginDefault.shouldEnable(decided: false, bundlePath: "/private/var/folders/x/AppTranslocation/y/RestBar.app", home: home), "A translocated download never becomes a login item")
 
+let ps = """
+  100     1   0.2 /Users/x/Library/Application Support/Claude/claude-code/2.1/claude.app/Contents/MacOS/claude
+  101   100  12.0 /bin/zsh
+  102   101  30.0 /usr/bin/swiftc
+  200     1   0.0 /Applications/Claude.app/Contents/MacOS/Claude
+  300     1   0.1 /opt/homebrew/bin/codex
+  400     1   0.0 /usr/local/bin/node
+  401     1   5.0 /usr/local/bin/node
+  402     1   5.0 /usr/local/bin/node
+  403     1   0.0 /usr/bin/python3
+  500     1   9.0 /usr/bin/grep
+"""
+let processes = AgentDetector.parseProcesses(ps)
+check(processes.count == 10 && processes[0].name == "claude", "Process paths with spaces parse")
+let commands = AgentDetector.parseCommands("""
+  400 node /usr/local/lib/node_modules/@openai/codex/bin/codex.js
+  401 node /Users/x/claude/server.js
+  402 node --no-warnings /usr/local/bin/gemini
+  403 /usr/bin/python3 /opt/homebrew/bin/aider --yes
+""")
+let found = AgentDetector.agents(in: processes, commands: commands)
+check(found.map(\.pid) == [100, 300, 400, 402, 403], "Agents are found by program, not by a mention in a path")
+check(found[0].name == "Claude Code" && found[0].cpu == 42.2, "An agent's CPU includes everything it started")
+check(found.map(\.name) == ["Claude Code", "Codex", "Codex", "Gemini CLI", "Aider"], "Agents get their display names")
+check(!found.contains { $0.pid == 200 }, "A desktop app of the same name is not an agent")
+
+var agentWatch = AgentWatch()
+let t0 = Date(timeIntervalSince1970: 1000)
+func agent(_ cpu: Double, _ name: String = "Claude Code") -> [AgentDetector.Agent] { [.init(name: name, pid: 1, cpu: cpu)] }
+check(agentWatch.update(agent(0.5), now: t0).isEmpty, "An idle open session doesn't hold the Mac awake")
+check(agentWatch.update(agent(30), now: t0) == ["Claude Code"], "A busy agent counts as working")
+check(agentWatch.update(agent(0), now: t0 + 540) == ["Claude Code"], "Waiting on its model for nine minutes still counts")
+check(agentWatch.update(agent(0), now: t0 + 601).isEmpty, "Ten quiet minutes counts as finished")
+_ = agentWatch.update(agent(30), now: t0 + 700)
+check(agentWatch.update([], now: t0 + 710).isEmpty, "An agent that exited is finished at once")
+
+check(LidHold.sudoersRule(user: "brad") == "brad ALL=(root) NOPASSWD: /usr/bin/pmset -a disablesleep 0, /usr/bin/pmset -a disablesleep 1", "The permission allows only these two commands")
+check(LidHold.sudoersRule(user: "a b") == nil && LidHold.sudoersRule(user: "x'; rm -rf /") == nil && LidHold.sudoersRule(user: "") == nil, "A strange account name can't reach a root command")
+check(!LidHold.installCommand(rule: "r").contains("\""), "The root command survives being quoted into AppleScript")
+let ruleFile = NSTemporaryDirectory() + "restbar-rule-\(UUID().uuidString)"
+try (LidHold.sudoersRule(user: "brad")! + "\n").write(toFile: ruleFile, atomically: true, encoding: .utf8)
+check(Command.run("/usr/sbin/visudo", ["-cf", ruleFile]).status == 0, "visudo accepts the permission")
+try? FileManager.default.removeItem(atPath: ruleFile)
+let hot = BatterySnapshot(percent: 90, onAC: true, charging: true, hasBattery: true, sourceKnown: true)
+let low = BatterySnapshot(percent: 20, onAC: false, charging: false, hasBattery: true, sourceKnown: true)
+check(LidHold.stopReason(battery: hot, thermal: .nominal) == nil, "A cool, charged Mac may stay on with the lid closed")
+check(LidHold.stopReason(battery: hot, thermal: .serious) != nil && LidHold.stopReason(battery: hot, thermal: .critical) != nil, "A hot Mac stops")
+check(LidHold.stopReason(battery: low, thermal: .nominal) != nil, "20% battery stops whatever the other options say")
+check(LidHold.needsRestore(owned: true, holding: false) && !LidHold.needsRestore(owned: true, holding: true) && !LidHold.needsRestore(owned: false, holding: false), "Only a setting RestBar left on gets restored")
+
 func matches(_ pattern: String, in text: String) -> [String] {
     let regex = try! NSRegularExpression(pattern: pattern)
     return regex.matches(in: text, range: NSRange(text.startIndex..., in: text)).map { match in
@@ -106,6 +156,8 @@ let used = Set(matches("\\bL\\(\"([^\"]+)\"\\)", in: source).map { $0.replacingO
 check(!used.isEmpty && used == Set(english.keys), "Every string used has a translation, and none is left unused")
 check(matches("\\b(?:Text|Toggle|Button|Picker)\\(\"|\\.help\\(\"|[tT]itle: \"|(?:messageText|informativeText) = \"", in: source).filter { $0 != "Text(\"" }.isEmpty
       && matches("Text\\(\"([^\"]+)\"\\)", in: source).allSatisfy { $0 == "RestBar" }, "No interface text bypasses translation")
+
+check(PowerSettings.sleepDisabled("System-wide power settings:\nCurrently in use:\n sleep 10") == false, "An absent line means sleep is allowed")
 
 let modern = PowerSettings("Battery Power:\n powermode 1\nAC Power:\n powermode 2\n")
 check(modern.lowPower(.battery) == true, "powermode 1 reads as Low Power on");
@@ -152,7 +204,25 @@ if CommandLine.arguments.contains("--integration") {
     child.terminate()
     child.waitUntilExit()
     check(!Command.run("/usr/bin/pmset", ["-g", "assertions"]).output.contains("RestBar-exit-test"), "Process exit releases its native assertion")
+    // The watchdog: when the process it watches dies, however it dies, it runs the restore.
+    let marker = NSTemporaryDirectory() + "restbar-watchdog-\(UUID().uuidString)"
+    let watched = Process()
+    watched.executableURL = URL(fileURLWithPath: "/bin/sleep")
+    watched.arguments = ["30"]
+    try watched.run()
+    let watchdog = Process()
+    watchdog.executableURL = URL(fileURLWithPath: "/bin/sh")
+    watchdog.arguments = ["-c", LidHold.watchdogScript(restore: "/usr/bin/touch \(marker)", every: 1), "restbar-watchdog", String(watched.processIdentifier)]
+    try watchdog.run()
+    Thread.sleep(forTimeInterval: 1.5)
+    check(!FileManager.default.fileExists(atPath: marker), "The watchdog waits while the app is alive")
+    kill(watched.processIdentifier, SIGKILL)
+    watched.waitUntilExit()
+    Thread.sleep(forTimeInterval: 2.5)
+    check(FileManager.default.fileExists(atPath: marker), "The watchdog restores after a force quit")
+    try? FileManager.default.removeItem(atPath: marker)
     let liveBattery = BatterySnapshot.read()
+    print("Agents running here: \(AgentDetector.sample().count)")
     check(liveBattery.sourceKnown, "Native power-source API available")
     print("Live battery: \(liveBattery.percent.map(String.init) ?? "n/a")%; \(liveBattery.description)")
 }

@@ -11,7 +11,7 @@ mkdir -p build/module-cache "$app/Contents/MacOS" "$app/Contents/Resources"
 cp Info.plist "$app/Contents/Info.plist"
 cp -R Resources/*.lproj "$app/Contents/Resources/"
 /usr/bin/xcrun swiftc -swift-version 5 -parse-as-library -module-cache-path "$PWD/build/module-cache" \
-  Sources/PowerCore.swift Sources/Brand.swift Sources/PowerController.swift Sources/Panel.swift scripts/PanelShot.swift \
+  Sources/PowerCore.swift Sources/AgentWatch.swift Sources/Brand.swift Sources/PowerController.swift Sources/Panel.swift scripts/PanelShot.swift \
   -framework AppKit -framework SwiftUI -framework IOKit -framework ServiceManagement -o "$app/Contents/MacOS/PanelShot"
 for language in en zh-Hans; do
   "$app/Contents/MacOS/PanelShot" "assets/screenshots/$language" -AppleLanguages "($language)"

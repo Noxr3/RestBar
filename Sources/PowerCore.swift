@@ -105,7 +105,8 @@ struct PowerSettings {
             let fields = line.split(whereSeparator: { $0.isWhitespace })
             if fields.count == 2 && fields[0] == "SleepDisabled", let value = Int(fields[1]) { return value != 0 }
         }
-        return nil
+        // macOS leaves the line out entirely while sleep is allowed.
+        return output.contains("System-wide power settings") ? false : nil
     }
 }
 

@@ -3,10 +3,19 @@ import SwiftUI
 import ServiceManagement
 import IOKit.ps
 
+enum AwakeSource { case person, agent }
+
 @MainActor
 final class PowerController: ObservableObject {
     @Published var battery = BatterySnapshot.read()
     @Published var active = false
+    @Published var source = AwakeSource.person
+    @Published var agents: [AgentDetector.Agent] = []
+    @Published var workingAgents: [String] = []
+    @Published var holdingLid = false
+    @Published var agentMode: Bool { didSet { UserDefaults.standard.set(agentMode, forKey: "agentMode"); Task { await checkAgents() } } }
+    @Published private(set) var lidMode: Bool { didSet { UserDefaults.standard.set(lidMode, forKey: "lidMode") } }
+    var lidRuleInstalled: Bool { FileManager.default.fileExists(atPath: LidHold.rulePath) }
     @Published var mode: AwakeMode = .system
     @Published var duration = 0
     @Published var deadline: Date?
@@ -29,12 +38,21 @@ final class PowerController: ObservableObject {
     private var expiryTimer: Timer?
     private var powerSource: CFRunLoopSource?
     private var refreshing = false
+    private var agentTimer: Timer?
+    private var watch = AgentWatch()
+    /// The person turned it off, or a safety stop did, while an agent was working. Stays
+    /// off until that agent finishes, rather than coming straight back.
+    private var agentSnoozed = false
+    private var lidWatchdog: Process?
+    private let lidOwnedKey = "lidHoldOwned"
 
     init() {
         let defaults = UserDefaults.standard
         lowBatteryGuard = defaults.object(forKey: "lowBatteryGuard") as? Bool ?? true
         onlyAC = defaults.bool(forKey: "onlyAC")
         showPercent = defaults.object(forKey: "showPercent") as? Bool ?? false
+        agentMode = defaults.object(forKey: "agentMode") as? Bool ?? true
+        lidMode = defaults.bool(forKey: "lidMode")
         refreshLogin()
         refreshTimer = Timer.scheduledTimer(withTimeInterval: 60, repeats: true) { [weak self] _ in
             Task { @MainActor in self?.refreshBattery() }
@@ -48,7 +66,48 @@ final class PowerController: ObservableObject {
         powerSource = IOPSNotificationCreateRunLoopSource(callback, Unmanaged.passUnretained(self).toOpaque())?.takeRetainedValue()
         if let powerSource { CFRunLoopAddSource(CFRunLoopGetMain(), powerSource, .commonModes) }
         NSWorkspace.shared.notificationCenter.addObserver(self, selector: #selector(woke), name: NSWorkspace.didWakeNotification, object: nil)
+        NotificationCenter.default.addObserver(self, selector: #selector(thermalChanged), name: ProcessInfo.thermalStateDidChangeNotification, object: nil)
         Task { await refresh() }
+    }
+
+    @objc private nonisolated func thermalChanged() {
+        Task { @MainActor in self.enforcePolicy() }
+    }
+
+    /// Called once by the app. Separate from init so rendering the panel for screenshots
+    /// never starts a session by itself.
+    func startWatching() {
+        restoreLidIfLeftOn()
+        agentTimer = Timer.scheduledTimer(withTimeInterval: 10, repeats: true) { [weak self] _ in
+            Task { @MainActor in await self?.checkAgents() }
+        }
+        agentTimer?.tolerance = 3
+        Task { await checkAgents() }
+    }
+
+    func checkAgents() async {
+        guard agentMode else {
+            agents = []
+            workingAgents = []
+            agentSnoozed = false
+            if active && source == .agent { stop() }
+            return
+        }
+        let sampled = await withCheckedContinuation { continuation in
+            DispatchQueue.global(qos: .utility).async { continuation.resume(returning: AgentDetector.sample()) }
+        }
+        agents = sampled
+        workingAgents = watch.update(sampled, now: Date())
+        guard !workingAgents.isEmpty else {
+            agentSnoozed = false
+            if active && source == .agent { stop(L("Agents finished. Your Mac can sleep again.")) }
+            return
+        }
+        guard !active, !agentSnoozed else { return }
+        battery = .read()
+        guard AwakePolicy.stopReason(battery: battery, lowBattery: lowBatteryGuard, onlyAC: onlyAC, deadline: nil, now: Date()) == nil,
+              !lidMode || LidHold.stopReason(battery: battery, thermal: ProcessInfo.processInfo.thermalState) == nil else { return }
+        startAssertion(source: .agent, seconds: 0)
     }
 
     @objc private func woke() {
@@ -81,19 +140,28 @@ final class PowerController: ObservableObject {
     }
 
     func toggleAwake(_ enabled: Bool) {
-        if !enabled { stop(L("RestBar released its keep-awake request.")); return }
+        if !enabled {
+            agentSnoozed = !workingAgents.isEmpty
+            stop(L("RestBar released its keep-awake request."))
+            return
+        }
         battery = .read()
         if let reason = AwakePolicy.stopReason(battery: battery, lowBattery: lowBatteryGuard, onlyAC: onlyAC, deadline: nil, now: Date()) {
             notice = reason
             return
         }
+        startAssertion(source: .person, seconds: TimeInterval(duration * 60))
+    }
+
+    private func startAssertion(source next: AwakeSource, seconds: TimeInterval) {
         do {
-            let seconds = TimeInterval(duration * 60)
             try assertion.start(mode: mode, seconds: seconds)
-            deadline = duration > 0 ? Date().addingTimeInterval(seconds) : nil
+            deadline = seconds > 0 ? Date().addingTimeInterval(seconds) : nil
+            source = next
             active = true
             notice = nil
             scheduleExpiry()
+            applyLid()
             onStatusChange?()
         } catch { self.error = error.localizedDescription }
     }
@@ -114,7 +182,7 @@ final class PowerController: ObservableObject {
     func setDuration(_ minutes: Int) {
         guard [0, 15, 30, 60, 120, 240].contains(minutes) else { return }
         duration = minutes
-        if active { toggleAwake(true) }
+        if active && source == .person { toggleAwake(true) }
     }
 
     private func scheduleExpiry() {
@@ -131,14 +199,126 @@ final class PowerController: ObservableObject {
         expiryTimer?.invalidate()
         expiryTimer = nil
         active = false
+        source = .person
         deadline = nil
         notice = message
+        applyLid()
         onStatusChange?()
     }
 
     private func enforcePolicy() {
         guard active else { return }
-        if let reason = AwakePolicy.stopReason(battery: battery, lowBattery: lowBatteryGuard, onlyAC: onlyAC, deadline: deadline, now: Date()) { stop(reason) }
+        var reason = AwakePolicy.stopReason(battery: battery, lowBattery: lowBatteryGuard, onlyAC: onlyAC, deadline: deadline, now: Date())
+        if reason == nil && holdingLid {
+            reason = LidHold.stopReason(battery: battery, thermal: ProcessInfo.processInfo.thermalState)
+        }
+        if let reason {
+            agentSnoozed = !workingAgents.isEmpty
+            stop(reason)
+        }
+    }
+
+    // MARK: Lid closed
+
+    /// Turning it on the first time installs the permission that lets RestBar switch this
+    /// one setting back unattended, after saying plainly what it does.
+    func setLidMode(_ enabled: Bool) {
+        guard enabled else {
+            lidMode = false
+            applyLid()
+            return
+        }
+        guard !lidRuleInstalled else {
+            lidMode = true
+            applyLid()
+            return
+        }
+        guard let rule = LidHold.sudoersRule(user: NSUserName()) else {
+            error = L("Your account name can't be used for this setting.")
+            return
+        }
+        closePanel?()
+        NSApp.activate(ignoringOtherApps: true)
+        let alert = NSAlert()
+        alert.messageText = L("Keep running with the lid closed?")
+        alert.informativeText = L("While RestBar keeps your Mac awake, it stays on with the lid closed, then sleeps as usual when it's done. It can get hot, so don't put it in a bag. RestBar stops at 20% battery or if your Mac runs hot.\n\nmacOS will ask for your password once, to let RestBar change this one setting.")
+        alert.addButton(withTitle: L("Continue"))
+        alert.addButton(withTitle: L("Cancel"))
+        guard alert.runModal() == .alertFirstButtonReturn else { return }
+        authorize(LidHold.installCommand(rule: rule)) { [weak self] in
+            guard let self else { return }
+            self.notice = nil
+            self.lidMode = true
+            self.applyLid()
+        }
+    }
+
+    func removeLidPermission() {
+        lidMode = false
+        applyLid()
+        authorize(LidHold.removeCommand) { [weak self] in
+            self?.notice = L("Lid-closed permission removed.")
+        }
+    }
+
+    private func applyLid() {
+        if active && lidMode && !holdingLid { holdLid() }
+        else if !(active && lidMode) && holdingLid { releaseLid() }
+    }
+
+    private func holdLid() {
+        let current = Command.run("/usr/bin/pmset", ["-g"])
+        if current.status == 0, PowerSettings.sleepDisabled(current.output) == true {
+            // Someone else turned it off. Theirs to turn back on, so RestBar leaves it alone.
+            holdingLid = true
+            return
+        }
+        let result = Command.run("/usr/bin/sudo", LidHold.onArguments)
+        guard result.status == 0 else {
+            lidMode = false
+            error = String(format: L("Couldn't keep running with the lid closed: %@"), result.output.trimmingCharacters(in: .whitespacesAndNewlines))
+            return
+        }
+        UserDefaults.standard.set(true, forKey: lidOwnedKey)
+        holdingLid = true
+        startLidWatchdog()
+    }
+
+    private func releaseLid() {
+        holdingLid = false
+        lidWatchdog?.terminate()
+        lidWatchdog = nil
+        guard UserDefaults.standard.bool(forKey: lidOwnedKey) else { return }
+        let result = Command.run("/usr/bin/sudo", LidHold.offArguments)
+        if result.status == 0 {
+            UserDefaults.standard.set(false, forKey: lidOwnedKey)
+        } else {
+            error = String(format: L("Couldn't restore system sleep: %@"), result.output.trimmingCharacters(in: .whitespacesAndNewlines))
+        }
+    }
+
+    private func startLidWatchdog() {
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/bin/sh")
+        process.arguments = ["-c", LidHold.watchdogScript(restore: LidHold.restoreCommand), "restbar-watchdog", String(ProcessInfo.processInfo.processIdentifier)]
+        process.standardInput = FileHandle.nullDevice
+        process.standardOutput = FileHandle.nullDevice
+        process.standardError = FileHandle.nullDevice
+        do {
+            try process.run()
+            lidWatchdog = process
+        } catch {
+            // Without a way back, the setting must not stay on.
+            releaseLid()
+            lidMode = false
+            self.error = error.localizedDescription
+        }
+    }
+
+    private func restoreLidIfLeftOn() {
+        let defaults = UserDefaults.standard
+        guard LidHold.needsRestore(owned: defaults.bool(forKey: lidOwnedKey), holding: holdingLid) else { return }
+        if Command.run("/usr/bin/sudo", LidHold.offArguments).status == 0 { defaults.set(false, forKey: lidOwnedKey) }
     }
 
     func setLowPower(_ profile: PowerProfile, _ enabled: Bool) {
@@ -238,6 +418,7 @@ final class PowerController: ObservableObject {
     func cleanup() {
         stop()
         refreshTimer?.invalidate()
+        agentTimer?.invalidate()
         if let powerSource { CFRunLoopRemoveSource(CFRunLoopGetMain(), powerSource, .commonModes) }
         powerSource = nil
         NSWorkspace.shared.notificationCenter.removeObserver(self)

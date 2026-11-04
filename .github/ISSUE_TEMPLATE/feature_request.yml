@@ -1,0 +1,18 @@
+name: Feature request
+description: Suggest something RestBar could do
+labels: [enhancement]
+body:
+  - type: markdown
+    attributes:
+      value: RestBar stays small on purpose. It has no dependencies, network access, data collection or background helper, and charge limits and fan control are out of scope.
+  - type: textarea
+    id: problem
+    attributes:
+      label: What are you trying to do?
+      description: Describe the situation, rather than the feature.
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: What would help?

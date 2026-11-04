@@ -1,29 +1,37 @@
-# RestBar
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="assets/brand/lockup-on-dark.png">
+    <img src="assets/brand/lockup-on-light.png" alt="RestBar" width="460">
+  </picture>
+</p>
 
-A lightweight macOS menu bar app for keeping your Mac awake, checking battery status, and managing Low Power Mode. Built with Swift, AppKit, SwiftUI, and IOKit. The current interface is in Simplified Chinese.
+<p align="center"><strong>Let your Mac rest on your schedule.</strong></p>
 
-[中文说明](README.zh-CN.md)
+<p align="center"><a href="README.zh-CN.md">中文说明</a></p>
 
-## Features
+RestBar is a small native menu bar app for macOS. It keeps your Mac awake for as long as you choose and stops on its own: when the time is up, when you unplug, or when the battery runs low. It also shows what is stopping your Mac from sleeping, and manages Low Power Mode.
 
-- Keep the system awake while allowing the display to sleep, or keep both awake.
-- Stop automatically after 15 or 30 minutes, 1, 2, or 4 hours; alternatively, stop manually.
-- Optionally stop when external power is disconnected, or when the battery reaches 20% and is not charging.
-- Read battery percentage, power source, charging state, and available macOS time estimates.
-- Manage Low Power Mode separately for battery and external power.
-- Inspect applications preventing automatic sleep and the system's sleep policy.
-- Turn off the display or request immediate sleep with confirmation.
-- Optionally launch at login and show the battery percentage in the menu bar.
+No account, no network access, no telemetry, no third-party dependencies. The whole app is under 900 lines of Swift you can read in an afternoon.
 
-No account, network service, telemetry, or third-party package dependencies are required.
+| At rest | Awake |
+| --- | --- |
+| <picture><source media="(prefers-color-scheme: dark)" srcset="assets/screenshots/panel-resting-dark.png"><img src="assets/screenshots/panel-resting-light.png" alt="RestBar panel at rest" width="340"></picture> | <picture><source media="(prefers-color-scheme: dark)" srcset="assets/screenshots/panel-awake-dark.png"><img src="assets/screenshots/panel-awake-light.png" alt="RestBar panel keeping the Mac awake" width="340"></picture> |
 
-## Requirements
+The interface is in Simplified Chinese today. English is [planned](https://github.com/Noxr3/RestBar/issues).
 
-- Apple Silicon Mac, macOS 13 or later.
-- Xcode or the Command Line Tools with a Swift compiler supporting Swift 5 language mode and macOS 13 APIs.
-- This build script targets `arm64`. Intel builds and cross-device distribution have not been validated.
+## What it does
 
-## Build and install
+- **Keeps your Mac awake**, with the display allowed to sleep or kept on too.
+- **Stops by itself** after 15 or 30 minutes, 1, 2 or 4 hours, or only when you turn it off.
+- **Protects your battery:** optionally stops when you unplug, or at 20% when not charging.
+- **Shows what is keeping your Mac up:** the apps preventing sleep and the system's sleep policy.
+- **Manages Low Power Mode** separately for battery and for external power.
+- **Turns the display off** or puts the Mac to sleep, with a confirmation.
+- **Optionally starts at login** and shows the battery percentage in the menu bar.
+
+## Install
+
+There is no notarized download yet, so for now you build it yourself. You need an Apple Silicon Mac on macOS 13 or later, and Xcode or the Command Line Tools.
 
 ```sh
 git clone https://github.com/Noxr3/RestBar.git
@@ -32,57 +40,47 @@ bash build.sh
 open dist/RestBar.app
 ```
 
-The output is `dist/RestBar.app`. Drag it into your personal `~/Applications` folder or `/Applications` to install it. Quit any running copy before launching the installed copy. Click the moon or coffee cup icon in the menu bar to open the panel; right-click for quick actions.
+To keep it, drag `dist/RestBar.app` into `~/Applications` or `/Applications`, and quit any running copy first. Click the moon in the menu bar to open the panel; right-click for quick actions.
 
-The build is locally ad-hoc signed. It is not Developer ID signed or notarized. A build copied to another Mac may require additional distribution work before it can be opened normally.
+### Can't see the icon?
 
-## How power controls behave
+RestBar has no window. If your menu bar is full, macOS hides new icons behind the notch without telling you, so RestBar can be running with nothing to click. Hold ⌘ and drag other menu bar icons to make room, or quit one you don't need.
 
-RestBar starts without enabling keep-awake or changing system power settings. Keep-awake uses a temporary IOKit assertion. The OS releases it when its timeout expires or the process exits; the app also releases it explicitly when stopped. Closing the panel leaves a session running. Changing duration restarts the countdown, while changing display mode preserves its deadline.
+## What to expect
 
-Lid closure and explicit system sleep still follow macOS rules. Turning RestBar off releases only its own assertion; other applications may continue to prevent automatic sleep. Selecting “turn off display” during a display-awake session switches that session to system-only wakefulness.
+- **Starting RestBar changes nothing.** Keep-awake is off until you turn it on.
+- **Keep-awake cannot outlive the app.** It uses a temporary macOS power assertion that is released when the time runs out or the app exits, even if the app crashes. Closing the panel leaves a session running.
+- **Closing the lid and choosing Sleep still work** the way macOS normally does.
+- **RestBar only releases its own request.** Other apps may still be keeping your Mac awake; the diagnostics tab shows them.
+- **Low Power Mode and restoring a disabled sleep policy are lasting system settings.** Changing them shows the native macOS administrator prompt, and they stay changed after RestBar quits. RestBar never reads or stores your password.
+- **Not included:** charge limits, fan control and whole-machine wattage.
 
-Low Power Mode and restoring a globally disabled sleep policy are persistent system settings. Changes require the native macOS administrator prompt, and successful commands are followed by a settings readback. The app does not read or store administrator passwords. These settings remain after RestBar exits. Login at startup is opt-in and uses `SMAppService`.
+## Project status
 
-RestBar does not set charge limits, control fans, or estimate whole-machine wattage. The Activity Monitor shortcut opens the app; select its Energy tab to inspect consumption.
+RestBar is early. The automated checks pass, but these still need a person to try them on each macOS version: administrator changes, immediate sleep, display sleep and start at login. Builds are ad-hoc signed and made for Apple Silicon only, so a copy moved to another Mac may not open normally. Intel has not been tried.
 
-## Tests
+## Develop
 
 ```sh
-bash test.sh                 # 26 deterministic parsing and policy checks
-bash test.sh --integration   # Also run 8 local IOKit integration checks
+bash test.sh                 # 33 deterministic parsing, policy and mark checks
+bash test.sh --integration   # Adds 8 checks against the real power APIs
 ```
 
-The integration checks briefly create native keep-awake assertions and verify explicit release, timeout, mode changes, and process-exit cleanup. Run them on a local Mac, one invocation at a time. They do not request sleep or alter Low Power Mode. The CI workflow runs the deterministic checks, builds and validates the app, and uploads a zipped build artifact. It does not run hardware or interactive authorization tests.
-
-Administrator setting changes, immediate sleep, display sleep, and login-item registration still need manual acceptance on each supported macOS version. A passing build does not validate those flows.
-
-## Project layout
+The integration checks briefly create and release real keep-awake assertions. They never put the Mac to sleep or change Low Power Mode. Run one at a time, on a local Mac. CI runs the deterministic checks, builds and validates the app, and uploads a zipped build; it cannot run the hardware or password-prompt flows.
 
 | Path | Purpose |
 | --- | --- |
-| `Sources/PowerCore.swift` | Battery APIs, settings parsers, policies, native assertions |
+| `Sources/PowerCore.swift` | Battery APIs, settings parsers, policies, power assertions |
 | `Sources/PowerController.swift` | Session lifecycle, system settings, authorization, login item |
-| `Sources/Panel.swift` | Menu bar popover UI |
-| `Sources/AppDelegate.swift` | Status item and application lifecycle |
+| `Sources/Panel.swift` | The menu bar panel |
+| `Sources/AppDelegate.swift` | Status item and app lifecycle |
+| `Sources/Brand.swift` | Colours and the dot-matrix moon, drawn by the app and the icon alike |
 | `Tests/main.swift` | Deterministic and local integration checks |
-| `scripts/Icon.swift` | Original AppKit icon generator |
+| `scripts/Icon.swift` | Generates the app icon and brand images |
+| `scripts/PanelShot.swift` | Renders the README screenshots from the real panel |
 
-The checked-in icon can be regenerated on macOS:
+See [CONTRIBUTING.md](CONTRIBUTING.md) to get involved, [SECURITY.md](SECURITY.md) to report a vulnerability, and [docs/BRAND.md](docs/BRAND.md) for how RestBar should look and sound.
 
-```sh
-mkdir -p build/module-cache
-xcrun swift -module-cache-path "$PWD/build/module-cache" scripts/Icon.swift build/AppIcon.iconset
-iconutil -c icns build/AppIcon.iconset -o AppIcon.icns
-```
+## License
 
-## Release status
-
-This repository is private preparation for a future open-source release. An open-source license has not been selected yet. Before public distribution, choose a license, validate the administrator and login-item flows, and decide how to sign and notarize releases. English localization and additional hardware coverage are also planned work, not current features.
-
-## Platform references
-
-- [IOKit idle sleep assertions](https://developer.apple.com/documentation/iokit/kiopmassertiontypepreventuseridlesystemsleep)
-- [Assertion timeouts](https://developer.apple.com/documentation/iokit/1557078-iopmassertioncreatewithdescripti)
-- [Power source descriptions](https://developer.apple.com/documentation/iokit/1523867-iopsgetpowersourcedescription)
-- [Login item registration](https://developer.apple.com/documentation/servicemanagement/smappservice/register())
+[MIT](LICENSE)

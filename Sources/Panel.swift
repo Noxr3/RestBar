@@ -213,15 +213,16 @@ private struct AwakeSwitch: ToggleStyle {
                 withAnimation(.easeOut(duration: 0.12)) { configuration.isOn.toggle() }
             } label: {
                 ZStack(alignment: configuration.isOn ? .trailing : .leading) {
-                    RoundedRectangle(cornerRadius: 12).fill(configuration.isOn ? Color(nsColor: Brand.signal) : Color.clear)
-                    RoundedRectangle(cornerRadius: 12).strokeBorder(Color.primary.opacity(configuration.isOn ? 0 : 0.4), lineWidth: 1.5)
+                    // Circular ends: a continuous curve this round grows small tabs at its widest point.
+                    Capsule(style: .circular).fill(configuration.isOn ? Color(nsColor: Brand.signal) : Color.clear)
+                    Capsule(style: .circular).strokeBorder(Color.primary.opacity(configuration.isOn ? 0 : 0.4), lineWidth: 1.5)
                     Circle()
                         .fill(configuration.isOn ? Color.white : Color.primary.opacity(0.55))
                         .frame(width: 16, height: 16)
                         .padding(4)
                 }
                 .frame(width: 44, height: 24)
-                .contentShape(RoundedRectangle(cornerRadius: 12))
+                .contentShape(Capsule(style: .circular))
             }
             .buttonStyle(.plain)
             .accessibilityLabel(L("Keep Awake"))

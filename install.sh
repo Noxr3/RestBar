@@ -28,7 +28,13 @@ app="$work/unpacked/RestBar.app"
 [ -d "$app" ] || fail "the download doesn't contain RestBar.app."
 
 codesign --verify --strict "$app" || fail "the app's signature is invalid, so nothing was installed."
-codesign -dv "$app" 2>&1 | grep -q "^TeamIdentifier=$team\$" || fail "the app isn't signed by RestBar's developer, so nothing was installed."
+# Into a variable first: grep -q exits at its first match, and under pipefail the pipe
+# that breaks would read as a failure.
+signature="$(codesign -dv "$app" 2>&1)"
+case "$signature" in
+  *"TeamIdentifier=$team"*) ;;
+  *) fail "the app isn't signed by RestBar's developer, so nothing was installed." ;;
+esac
 if [ "${RESTBAR_SKIP_NOTARY_CHECK:-0}" != 1 ]; then
   spctl --assess --type execute "$app" 2>/dev/null || fail "Apple hasn't notarized this app, so nothing was installed."
 fi

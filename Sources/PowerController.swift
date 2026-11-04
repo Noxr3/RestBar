@@ -8,7 +8,7 @@ final class PowerController: ObservableObject {
     @Published var battery = BatterySnapshot.read()
     @Published var active = false
     @Published var mode: AwakeMode = .system
-    @Published var duration = 60
+    @Published var duration = 0
     @Published var deadline: Date?
     @Published var settings = PowerSettings("")
     @Published var globalSleepDisabled: Bool?
@@ -19,7 +19,6 @@ final class PowerController: ObservableObject {
     @Published var lastRefresh: Date?
     @Published var loginEnabled = false
     @Published var loginNeedsApproval = false
-    @Published var selectedProfile: PowerProfile = .adapter
     @Published var lowBatteryGuard: Bool { didSet { UserDefaults.standard.set(lowBatteryGuard, forKey: "lowBatteryGuard"); enforcePolicy() } }
     @Published var onlyAC: Bool { didSet { UserDefaults.standard.set(onlyAC, forKey: "onlyAC"); enforcePolicy() } }
     @Published var showPercent: Bool { didSet { UserDefaults.standard.set(showPercent, forKey: "showPercent"); onStatusChange?() } }
@@ -36,7 +35,6 @@ final class PowerController: ObservableObject {
         lowBatteryGuard = defaults.object(forKey: "lowBatteryGuard") as? Bool ?? true
         onlyAC = defaults.bool(forKey: "onlyAC")
         showPercent = defaults.object(forKey: "showPercent") as? Bool ?? false
-        selectedProfile = battery.onAC ? .adapter : .battery
         refreshLogin()
         refreshTimer = Timer.scheduledTimer(withTimeInterval: 60, repeats: true) { [weak self] _ in
             Task { @MainActor in self?.refreshBattery() }
@@ -76,14 +74,14 @@ final class PowerController: ObservableObject {
         settings = PowerSettings(c.status == 0 ? c.output : "")
         globalSleepDisabled = g.status == 0 ? PowerSettings.sleepDisabled(g.output) : nil
         blockers = a.status == 0 ? SleepBlocker.parse(a.output) : []
-        if c.status != 0 || g.status != 0 || a.status != 0 { error = "部分系统状态读取失败，请重试。" }
+        if c.status != 0 || g.status != 0 || a.status != 0 { error = L("Some system status couldn't be read. Try again.") }
         lastRefresh = Date()
         refreshLogin()
         onStatusChange?()
     }
 
     func toggleAwake(_ enabled: Bool) {
-        if !enabled { stop("已释放 RestBar 的防休眠请求"); return }
+        if !enabled { stop(L("RestBar released its keep-awake request.")); return }
         battery = .read()
         if let reason = AwakePolicy.stopReason(battery: battery, lowBattery: lowBatteryGuard, onlyAC: onlyAC, deadline: nil, now: Date()) {
             notice = reason
@@ -103,7 +101,7 @@ final class PowerController: ObservableObject {
     func setMode(_ next: AwakeMode) {
         guard next != mode else { return }
         if active {
-            if let deadline, deadline <= Date() { stop("定时结束，已允许自动休眠") }
+            if let deadline, deadline <= Date() { stop(L("Time is up. Your Mac can sleep again.")) }
             else {
                 do { try assertion.start(mode: next, seconds: deadline.map { max(1, $0.timeIntervalSinceNow) } ?? 0) }
                 catch { self.error = error.localizedDescription; return }
@@ -143,16 +141,15 @@ final class PowerController: ObservableObject {
         if let reason = AwakePolicy.stopReason(battery: battery, lowBattery: lowBatteryGuard, onlyAC: onlyAC, deadline: deadline, now: Date()) { stop(reason) }
     }
 
-    func setLowPower(_ enabled: Bool) {
-        guard !busy, settings.lowPower(selectedProfile) != nil else { return }
-        let profile = selectedProfile
+    func setLowPower(_ profile: PowerProfile, _ enabled: Bool) {
+        guard !busy, settings.lowPower(profile) != nil else { return }
         authorize("/usr/bin/pmset \(profile.argument) \(settings.lowPowerKey(profile)) \(enabled ? 1 : 0)") { [weak self] in
             guard let self else { return }
             let result = await Command.asyncRun("/usr/bin/pmset", ["-g", "custom"])
             self.settings = PowerSettings(result.output)
             if result.status == 0 && self.settings.lowPower(profile) == enabled {
-                self.notice = "\(profile.rawValue)时：低电量模式已\(enabled ? "开启" : "关闭")"
-            } else { self.error = "命令已执行，但未确认设置生效。请在系统设置中检查。" }
+                self.notice = enabled ? L("Low Power Mode is on.") : L("Low Power Mode is off.")
+            } else { self.error = L("The command ran, but the setting couldn't be confirmed. Check System Settings.") }
         }
     }
 
@@ -161,8 +158,8 @@ final class PowerController: ObservableObject {
             guard let self else { return }
             let result = await Command.asyncRun("/usr/bin/pmset", ["-g"])
             self.globalSleepDisabled = PowerSettings.sleepDisabled(result.output)
-            if result.status == 0 && self.globalSleepDisabled == false { self.notice = "系统已允许休眠" }
-            else { self.error = "无法确认系统防休眠已关闭，请刷新后检查。" }
+            if result.status == 0 && self.globalSleepDisabled == false { self.notice = L("Your Mac is allowed to sleep again.") }
+            else { self.error = L("Couldn't confirm sleep is allowed again. Refresh and check.") }
         }
     }
 
@@ -170,13 +167,13 @@ final class PowerController: ObservableObject {
         guard !busy else { return }
         busy = true
         error = nil
-        notice = "请在 macOS 授权窗口中确认…"
+        notice = L("Confirm in the macOS password prompt…")
         Task {
             defer { busy = false; onStatusChange?() }
             let result = await Command.asyncRun("/usr/bin/osascript", ["-e", "do shell script \"\(command)\" with administrator privileges"])
             if result.status == 0 { await verified() }
-            else if result.output.contains("-128") { notice = "已取消，系统设置未更改" }
-            else { notice = nil; error = "系统未能应用设置：\(result.output.trimmingCharacters(in: .whitespacesAndNewlines))" }
+            else if result.output.contains("-128") { notice = L("Cancelled. System settings weren't changed.") }
+            else { notice = nil; error = String(format: L("macOS couldn't apply the setting: %@"), result.output.trimmingCharacters(in: .whitespacesAndNewlines)) }
         }
     }
 
@@ -186,7 +183,7 @@ final class PowerController: ObservableObject {
         closePanel?()
         Task {
             let result = await Command.asyncRun("/usr/bin/pmset", ["displaysleepnow"])
-            if result.status != 0 { error = "无法关闭屏幕：\(result.output)" }
+            if result.status != 0 { error = String(format: L("Couldn't turn off the display: %@"), result.output) }
         }
     }
 
@@ -194,17 +191,17 @@ final class PowerController: ObservableObject {
         closePanel?()
         NSApp.activate(ignoringOtherApps: true)
         let alert = NSAlert()
-        alert.messageText = "现在让 Mac 休眠？"
-        alert.informativeText = "运行中的下载、编译和远程连接可能暂停。RestBar 会先释放自己的防休眠请求。"
-        alert.addButton(withTitle: "立即休眠")
-        alert.addButton(withTitle: "取消")
+        alert.messageText = L("Put your Mac to sleep now?")
+        alert.informativeText = L("Downloads, builds and remote connections may pause. RestBar releases its own keep-awake request first.")
+        alert.addButton(withTitle: L("Sleep Now"))
+        alert.addButton(withTitle: L("Cancel"))
         alert.buttons[0].keyEquivalent = ""
         alert.buttons[1].keyEquivalent = "\r"
         guard alert.runModal() == .alertFirstButtonReturn else { return }
         stop()
         Task {
             let result = await Command.asyncRun("/usr/bin/pmset", ["sleepnow"])
-            if result.status != 0 { error = "无法进入休眠：\(result.output)" }
+            if result.status != 0 { error = String(format: L("Couldn't put your Mac to sleep: %@"), result.output) }
         }
     }
 
@@ -213,13 +210,29 @@ final class PowerController: ObservableObject {
         loginNeedsApproval = SMAppService.mainApp.status == .requiresApproval
     }
 
-    func setLogin(_ enabled: Bool) {
+    /// Starting at login is the default, once. After that it's whatever the person
+    /// last chose, including off, so a reinstall never turns it back on.
+    func applyLoginDefault() {
+        let defaults = UserDefaults.standard
+        guard LoginDefault.shouldEnable(
+            decided: defaults.bool(forKey: "loginDecided"),
+            bundlePath: Bundle.main.bundlePath,
+            home: NSHomeDirectory()
+        ) else { return }
+        setLogin(true, askingForApproval: false)
+    }
+
+    func setLogin(_ enabled: Bool, askingForApproval: Bool = true) {
+        UserDefaults.standard.set(true, forKey: "loginDecided")
         do {
             if enabled { try SMAppService.mainApp.register() }
             else { try SMAppService.mainApp.unregister() }
             refreshLogin()
-            if loginNeedsApproval { SMAppService.openSystemSettingsLoginItems() }
-        } catch { self.error = "登录启动设置失败：\(error.localizedDescription)"; refreshLogin() }
+            if loginNeedsApproval && askingForApproval { SMAppService.openSystemSettingsLoginItems() }
+        } catch {
+            self.error = String(format: L("Couldn't update start at login: %@"), error.localizedDescription)
+            refreshLogin()
+        }
     }
 
     func cleanup() {

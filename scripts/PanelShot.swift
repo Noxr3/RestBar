@@ -1,13 +1,4 @@
-// Renders the real panel, on this Mac's real battery data, to PNGs for the
-// README, so screenshots are regenerated rather than retouched. To show the awake
-// state it starts a real keep-awake session for a few seconds and releases it; it
-// changes no system setting.
-//
-//   mkdir -p build/module-cache
-//   xcrun swiftc -swift-version 5 -parse-as-library -module-cache-path build/module-cache \
-//     Sources/PowerCore.swift Sources/Brand.swift Sources/PowerController.swift Sources/Panel.swift scripts/PanelShot.swift \
-//     -framework AppKit -framework SwiftUI -framework IOKit -framework ServiceManagement -o build/PanelShot
-//   build/PanelShot assets/screenshots
+// The panel renderer behind scripts/screenshots.sh.
 import AppKit
 import SwiftUI
 
@@ -21,7 +12,7 @@ private final class ShotWindow: NSWindow {
 @main
 struct PanelShot {
     @MainActor static func main() {
-        guard CommandLine.arguments.count == 2 else {
+        guard CommandLine.arguments.count >= 2 else {
             print("usage: PanelShot <output-dir>")
             exit(2)
         }

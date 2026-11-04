@@ -23,7 +23,14 @@ Before opening a pull request:
 - Keep it to one change, and open an issue first if it's a large one.
 - Add a check in `Tests/main.swift` for any new parsing or policy logic.
 - Try the change in the real app, and say in the pull request what you tried and on which Mac. If you changed how the app looks, include a screenshot.
-- Regenerate the README screenshots with `scripts/PanelShot.swift` if the panel changed visibly.
+- Regenerate the README screenshots with `bash scripts/screenshots.sh` if the panel changed visibly.
+
+## Translating
+
+RestBar follows the system language, and every word goes through `L("English text")`, with the English as the key. Translations live in `Resources/<language>.lproj/Localizable.strings`.
+
+- To change or add text, edit `en`, `zh-Hans` and `zh-Hant` together. `bash test.sh` fails if a language is missing a line, a placeholder or a string in use.
+- To add a language, copy `Resources/en.lproj`, translate the values, and add it to `CFBundleLocalizations` in `Info.plist` and to the list in `Tests/main.swift`.
 
 ## What fits
 

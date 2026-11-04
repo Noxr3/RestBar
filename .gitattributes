@@ -3,4 +3,5 @@
 *.md text eol=lf
 *.yml text eol=lf
 *.plist text eol=lf
+*.strings text eol=lf
 *.icns binary

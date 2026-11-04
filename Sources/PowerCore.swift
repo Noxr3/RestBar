@@ -2,16 +2,21 @@ import Foundation
 import IOKit.pwr_mgt
 import IOKit.ps
 
+/// Every word a person reads goes through here, keyed by its English text. The
+/// translations are in Resources/, and macOS picks the language from System Settings.
+func L(_ key: String) -> String { NSLocalizedString(key, comment: "") }
+
 enum AwakeMode: String, CaseIterable, Identifiable {
-    case system = "允许屏幕熄灭", display = "屏幕也常亮"
+    case system, display
     var id: String { rawValue }
+    var title: String { self == .system ? L("Let display sleep") : L("Keep display on") }
     var assertionType: String {
         self == .system ? kIOPMAssertionTypePreventUserIdleSystemSleep : kIOPMAssertionTypePreventUserIdleDisplaySleep
     }
 }
 
 enum PowerProfile: String, CaseIterable, Identifiable {
-    case battery = "使用电池", adapter = "接通电源"
+    case battery, adapter
     var id: String { rawValue }
     var argument: String { self == .battery ? "-b" : "-c" }
     var section: String { self == .battery ? "Battery Power" : "AC Power" }
@@ -52,18 +57,20 @@ struct BatterySnapshot {
     }
 
     var description: String {
-        guard sourceKnown else { return "电源状态暂不可用" }
-        if !hasBattery { return onAC ? "接通电源" : "外部备用电源" }
-        if charging { return "接通电源 · 正在充电" }
-        if charged { return "接通电源 · 已充满" }
-        return onAC ? "接通电源 · 未在充电" : "正在使用电池"
+        guard sourceKnown else { return L("Power status unavailable") }
+        if !hasBattery { return onAC ? L("Plugged in") : L("External backup power") }
+        if charging { return L("Plugged in · Charging") }
+        if charged { return L("Plugged in · Fully charged") }
+        return onAC ? L("Plugged in · Not charging") : L("On battery power")
     }
 
-    var estimate: String {
-        guard let minutes = minutesRemaining else { return "续航时间由 macOS 估算" }
-        if onAC && !charging { return "充电由 macOS 或其他电池工具管理" }
-        let duration = minutes >= 60 ? "\(minutes / 60) 小时 \(minutes % 60) 分钟" : "\(minutes) 分钟"
-        return charging ? "预计 \(duration)充满" : "预计还可使用 \(duration)"
+    /// Only when macOS actually gave an estimate.
+    var estimate: String? {
+        guard let minutes = minutesRemaining, !(onAC && !charging) else { return nil }
+        let duration = minutes >= 60
+            ? String(format: L("%d hr %d min"), minutes / 60, minutes % 60)
+            : String(format: L("%d min"), minutes)
+        return String(format: charging ? L("%@ until full") : L("%@ remaining"), duration)
     }
 }
 
@@ -121,10 +128,10 @@ struct SleepBlocker: Identifiable {
 
 enum AwakePolicy {
     static func stopReason(battery: BatterySnapshot, lowBattery: Bool, onlyAC: Bool, deadline: Date?, now: Date) -> String? {
-        if let deadline, now >= deadline { return "定时结束，已允许自动休眠" }
-        if onlyAC && (!battery.sourceKnown || !battery.onAC) { return "未接通电源，已停止保持唤醒" }
+        if let deadline, now >= deadline { return L("Time is up. Your Mac can sleep again.") }
+        if onlyAC && (!battery.sourceKnown || !battery.onAC) { return L("Not plugged in, so keep-awake stopped.") }
         if lowBattery && battery.hasBattery && !battery.charging && (battery.percent.map { $0 <= 20 } ?? false) {
-            return "电量不高于 20%，已停止保持唤醒"
+            return L("Battery at 20% or below, so keep-awake stopped.")
         }
         return nil
     }
@@ -132,13 +139,13 @@ enum AwakePolicy {
 
 final class PowerAssertion {
     private(set) var id: IOPMAssertionID?
-    func start(mode: AwakeMode, seconds: TimeInterval = 0, name: String = "RestBar · 保持唤醒") throws {
+    func start(mode: AwakeMode, seconds: TimeInterval = 0, name: String = "RestBar keep-awake") throws {
         var next: IOPMAssertionID = 0
         let code = IOPMAssertionCreateWithDescription(mode.assertionType as CFString, name as CFString,
             "User-requested temporary keep-awake session" as CFString, nil, nil,
             seconds, kIOPMAssertionTimeoutActionRelease as CFString, &next)
         guard code == kIOReturnSuccess else {
-            throw NSError(domain: "RestBar", code: Int(code), userInfo: [NSLocalizedDescriptionKey: "无法建立防休眠请求（\(code)）"])
+            throw NSError(domain: "RestBar", code: Int(code), userInfo: [NSLocalizedDescriptionKey: String(format: L("Couldn't start keep-awake (%d)."), code)])
         }
         stop()
         id = next
@@ -148,6 +155,15 @@ final class PowerAssertion {
         id = nil
     }
     deinit { stop() }
+}
+
+enum LoginDefault {
+    /// RestBar starts at login unless the person turned that off. It only sets this up
+    /// from an Applications folder, so a copy run from a build folder or a download
+    /// doesn't leave a login item pointing at somewhere temporary.
+    static func shouldEnable(decided: Bool, bundlePath: String, home: String) -> Bool {
+        !decided && (bundlePath.hasPrefix("/Applications/") || bundlePath.hasPrefix("\(home)/Applications/"))
+    }
 }
 
 struct CommandResult {

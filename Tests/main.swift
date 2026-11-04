@@ -73,8 +73,39 @@ check(reason(true, true) != nil, "Unknown source cannot bypass AC-only guard")
 battery.percent = nil
 battery.sourceKnown = true
 check(reason() == nil, "Missing percentage is not treated as zero")
-check(BatterySnapshot(percent: 85, onAC: true, charging: false, hasBattery: true, sourceKnown: true).description.contains("未在充电"), "Plugged in does not imply charging")
-check(BatterySnapshot().description == "电源状态暂不可用", "Missing source is explicitly unavailable")
+check(BatterySnapshot(percent: 85, onAC: true, charging: false, hasBattery: true, sourceKnown: true).description.contains("Not charging"), "Plugged in does not imply charging")
+check(BatterySnapshot().description == "Power status unavailable", "Missing source is explicitly unavailable")
+check(BatterySnapshot(onAC: true, charging: false, minutesRemaining: 90).estimate == nil, "No estimate while plugged in and not charging")
+check(BatterySnapshot(onAC: false, charging: false, minutesRemaining: 90).estimate == "1 hr 30 min remaining", "Estimate formats hours and minutes")
+
+let home = "/Users/someone"
+check(LoginDefault.shouldEnable(decided: false, bundlePath: "/Applications/RestBar.app", home: home), "First launch from Applications starts at login")
+check(LoginDefault.shouldEnable(decided: false, bundlePath: "\(home)/Applications/RestBar.app", home: home), "First launch from personal Applications starts at login")
+check(!LoginDefault.shouldEnable(decided: true, bundlePath: "/Applications/RestBar.app", home: home), "A person's choice is never overridden")
+check(!LoginDefault.shouldEnable(decided: false, bundlePath: "\(home)/RestBar/dist/RestBar.app", home: home), "A build folder never becomes a login item")
+check(!LoginDefault.shouldEnable(decided: false, bundlePath: "/private/var/folders/x/AppTranslocation/y/RestBar.app", home: home), "A translocated download never becomes a login item")
+
+func matches(_ pattern: String, in text: String) -> [String] {
+    let regex = try! NSRegularExpression(pattern: pattern)
+    return regex.matches(in: text, range: NSRange(text.startIndex..., in: text)).map { match in
+        let range = match.numberOfRanges > 1 ? match.range(at: 1) : match.range
+        return String(text[Range(range, in: text)!])
+    }
+}
+let languages = ["en", "zh-Hans", "zh-Hant"]
+let tables = languages.map { NSDictionary(contentsOfFile: "Resources/\($0).lproj/Localizable.strings") as? [String: String] ?? [:] }
+let english = tables[0]
+check(!english.isEmpty && tables.allSatisfy { Set($0.keys) == Set(english.keys) }, "Every language has exactly the same strings")
+check(tables.allSatisfy { table in
+    table.allSatisfy { Set(matches("%[d@]", in: $0.key)).sorted() == Set(matches("%[d@]", in: $0.value)).sorted() }
+}, "Translations keep their placeholders")
+let source = try FileManager.default.contentsOfDirectory(atPath: "Sources").filter { $0.hasSuffix(".swift") }
+    .map { try String(contentsOfFile: "Sources/\($0)", encoding: .utf8) }.joined(separator: "\n")
+check(matches("\\p{Han}", in: source).isEmpty, "No translated text is left in the source")
+let used = Set(matches("\\bL\\(\"([^\"]+)\"\\)", in: source).map { $0.replacingOccurrences(of: "\\n", with: "\n") })
+check(!used.isEmpty && used == Set(english.keys), "Every string used has a translation, and none is left unused")
+check(matches("\\b(?:Text|Toggle|Button|Picker)\\(\"|\\.help\\(\"|[tT]itle: \"|(?:messageText|informativeText) = \"", in: source).filter { $0 != "Text(\"" }.isEmpty
+      && matches("Text\\(\"([^\"]+)\"\\)", in: source).allSatisfy { $0 == "RestBar" }, "No interface text bypasses translation")
 
 let modern = PowerSettings("Battery Power:\n powermode 1\nAC Power:\n powermode 2\n")
 check(modern.lowPower(.battery) == true, "powermode 1 reads as Low Power on");

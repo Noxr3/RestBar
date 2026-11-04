@@ -22,7 +22,7 @@ CI cannot do these: they need real hardware or a password.
 - [ ] Turn off display, and immediate sleep after its confirmation.
 - [ ] Start at login turns on and off, including the approval step in System Settings.
 - [ ] Keep-awake stops on unplug and at 20% when those options are on.
-- [ ] The awake state shows red in the menu bar, and the switches show red in the real panel.
+- [ ] The moon fills in the menu bar while awake, and the red dot appears beside the timer. Nothing else in the real panel is red, checked switches included.
 - [ ] `bash test.sh --integration` passes.
 
 ## Releasing

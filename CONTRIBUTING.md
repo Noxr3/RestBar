@@ -31,7 +31,7 @@ RestBar stays small on purpose. It has no third-party dependencies, makes no net
 
 Commands that run with administrator rights must stay fixed strings built only from internal values, never from user input or anything read from the system.
 
-For how RestBar should look and sound, see [docs/BRAND.md](docs/BRAND.md). In short: monochrome, and red only when it is holding your Mac awake.
+For how RestBar should look and sound, see [docs/BRAND.md](docs/BRAND.md). In short: monochrome, one red dot only while it is holding your Mac awake, and nothing said twice.
 
 ## Conduct
 

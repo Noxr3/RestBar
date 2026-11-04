@@ -25,7 +25,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         popover.behavior = .transient
         popover.animates = true
         popover.delegate = self
-        popover.contentSize = NSSize(width: 374, height: 710)
+        popover.contentSize = Panel.size
         model.onStatusChange = { [weak self] in self?.updateStatus() }
         model.closePanel = { [weak self] in self?.popover.performClose(nil) }
         updateStatus()

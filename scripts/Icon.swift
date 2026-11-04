@@ -42,14 +42,14 @@ struct Icon {
         }
 
         try png(width: 512, height: 512, to: "\(brand)/mark-on-dark.png") {
-            MoonMark.draw(in: NSRect(x: 0, y: 0, width: 512, height: 512), columns: 15, phase: .resting, ink: Brand.white, signal: Brand.markRed)
+            MoonMark.draw(in: NSRect(x: 0, y: 0, width: 512, height: 512), columns: 11, phase: .resting, ink: Brand.white, logoDot: Brand.markRed)
         }
         try png(width: 512, height: 512, to: "\(brand)/mark-on-light.png") {
-            MoonMark.draw(in: NSRect(x: 0, y: 0, width: 512, height: 512), columns: 15, phase: .resting, ink: Brand.paper, signal: Brand.markRed)
+            MoonMark.draw(in: NSRect(x: 0, y: 0, width: 512, height: 512), columns: 11, phase: .resting, ink: Brand.paper, logoDot: Brand.markRed)
         }
         for (name, ink) in [("lockup-on-dark", Brand.white), ("lockup-on-light", Brand.paper)] {
             try png(width: 1200, height: 280, to: "\(brand)/\(name).png") {
-                MoonMark.draw(in: NSRect(x: 20, y: 40, width: 200, height: 200), columns: 15, phase: .resting, ink: ink, signal: Brand.markRed)
+                MoonMark.draw(in: NSRect(x: 20, y: 40, width: 200, height: 200), columns: 11, phase: .resting, ink: ink, logoDot: Brand.markRed)
                 text("RestBar", at: NSPoint(x: 262, y: 14), font: wordmark(190), color: ink)
             }
         }
@@ -57,10 +57,9 @@ struct Icon {
         try png(width: 1280, height: 640, to: "\(brand)/social-preview.png") {
             Brand.paper.setFill()
             NSRect(x: 0, y: 0, width: 1280, height: 640).fill()
-            MoonMark.draw(in: NSRect(x: 110, y: 190, width: 260, height: 260), columns: 15, phase: .resting, ink: Brand.white, signal: Brand.markRed)
-            text("RestBar", at: NSPoint(x: 424, y: 318), font: wordmark(150), color: Brand.white)
-            text("Let your Mac rest on your schedule.", at: NSPoint(x: 432, y: 258), font: .systemFont(ofSize: 34), color: Brand.white)
-            text("让 Mac 按你的节奏休息", at: NSPoint(x: 432, y: 206), font: .systemFont(ofSize: 30), color: Brand.white.withAlphaComponent(0.62))
+            MoonMark.draw(in: NSRect(x: 110, y: 190, width: 260, height: 260), columns: 11, phase: .resting, ink: Brand.white, logoDot: Brand.markRed)
+            text("RestBar", at: NSPoint(x: 424, y: 288), font: wordmark(150), color: Brand.white)
+            text("Let your Mac rest on your schedule.", at: NSPoint(x: 432, y: 236), font: .systemFont(ofSize: 30), color: Brand.white.withAlphaComponent(0.62))
         }
     }
 
@@ -74,7 +73,7 @@ struct Icon {
         let moon = s * (s >= 128 ? 0.53 : 0.64)
         let area = NSRect(x: (s - moon) / 2, y: (s - moon) / 2, width: moon, height: moon)
         if s > 32 {
-            MoonMark.draw(in: area, columns: columns, phase: .resting, ink: Brand.white, signal: Brand.markRed)
+            MoonMark.draw(in: area, columns: columns, phase: .resting, ink: Brand.white, logoDot: Brand.markRed)
         } else {
             solidMoon(in: area)
         }
@@ -96,7 +95,7 @@ struct Icon {
         circle(MoonMark.disc).fill()
         NSGraphicsContext.restoreGraphicsState()
         Brand.markRed.setFill()
-        circle((x: 0.72, y: 0.70, radius: 0.13)).fill()
+        circle((x: 0.72, y: 0.70, radius: 0.10)).fill()
     }
 
     static func wordmark(_ size: CGFloat) -> NSFont {

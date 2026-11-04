@@ -35,7 +35,7 @@ final class PowerController: ObservableObject {
         let defaults = UserDefaults.standard
         lowBatteryGuard = defaults.object(forKey: "lowBatteryGuard") as? Bool ?? true
         onlyAC = defaults.bool(forKey: "onlyAC")
-        showPercent = defaults.object(forKey: "showPercent") as? Bool ?? true
+        showPercent = defaults.object(forKey: "showPercent") as? Bool ?? false
         selectedProfile = battery.onAC ? .adapter : .battery
         refreshLogin()
         refreshTimer = Timer.scheduledTimer(withTimeInterval: 60, repeats: true) { [weak self] _ in

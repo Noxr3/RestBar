@@ -82,14 +82,13 @@ check(modern.lowPower(.adapter) == false, "powermode 2 (High Power) is not Low P
 check(modern.lowPowerKey(.battery) == "powermode", "A powermode Mac is written with powermode");
 check(settings.lowPowerKey(.battery) == "lowpowermode", "A lowpowermode Mac keeps its own key");
 
-let resting = MoonMark.dots(columns: 15, phase: .resting)
-check(resting.filter(\.isSignal).count == 1, "Resting mark has exactly one red dot")
-check(resting.filter { !$0.isSignal }.allSatisfy { dot in
+let resting = MoonMark.dots(columns: 11, phase: .resting)
+check(resting.allSatisfy { dot in
     let dx = dot.x - MoonMark.cut.x, dy = dot.y - MoonMark.cut.y
     return dx * dx + dy * dy > MoonMark.cut.radius * MoonMark.cut.radius
 }, "Crescent dots stay outside the cut")
-let awakeDots = MoonMark.dots(columns: 15, phase: .awake)
-check(!awakeDots.contains(where: \.isSignal) && awakeDots.count > resting.count, "Awake mark is the fuller disc, in one colour")
+check(!resting.contains(MoonMark.logoDot(columns: 11)), "Logo dot sits in the crescent's mouth")
+check(MoonMark.dots(columns: 11, phase: .awake).count > resting.count, "Awake mark is the fuller disc")
 
 if CommandLine.arguments.contains("--integration") {
     let assertion = PowerAssertion()

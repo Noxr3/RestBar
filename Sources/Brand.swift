@@ -8,10 +8,10 @@ enum Brand {
     static let white = hex(0xFFFFFF)
     /// The mark's red dot.
     static let markRed = hex(0xF50233)
-    /// Red text and glyphs: deeper on light, lighter on dark, so both stay legible.
+    /// The one red thing in the app: the dot beside the timer while awake.
     static let signal = dynamic(light: 0xED0031, dark: 0xFF1748)
-    /// Red behind a white label.
-    static let signalFill = dynamic(light: 0xED0031, dark: 0xED002F)
+    /// Checked controls. Grey rather than white on dark, so a white knob still shows.
+    static let controlTint = dynamic(light: 0x191919, dark: 0x8A8A8A)
 
     static func hex(_ value: UInt32) -> NSColor {
         NSColor(
@@ -37,14 +37,12 @@ enum MoonMark {
         let x: CGFloat
         let y: CGFloat
         let radius: CGFloat
-        /// The single red dot. Only the resting mark has one.
-        let isSignal: Bool
     }
 
     /// Dots are 80% of their cell, the same fill Dokki's dot marks use.
     static let fill: CGFloat = 0.8
     static let disc = (x: CGFloat(0.5), y: CGFloat(0.5), radius: CGFloat(0.5))
-    static let cut = (x: CGFloat(0.71), y: CGFloat(0.66), radius: CGFloat(0.39))
+    static let cut = (x: CGFloat(0.64), y: CGFloat(0.64), radius: CGFloat(0.42))
 
     static func dots(columns: Int, phase: Phase) -> [Dot] {
         let cell = 1 / CGFloat(columns)
@@ -57,28 +55,27 @@ enum MoonMark {
             for column in 0..<columns {
                 let x = (CGFloat(column) + 0.5) * cell, y = (CGFloat(row) + 0.5) * cell
                 guard inside(x, y, disc), phase == .awake || !inside(x, y, cut) else { continue }
-                result.append(Dot(x: x, y: y, radius: cell * fill / 2, isSignal: false))
+                result.append(Dot(x: x, y: y, radius: cell * fill / 2))
             }
-        }
-        if phase == .resting {
-            // On the grid, in the crescent's mouth, half again the size of its neighbours.
-            let column = (0.70 / cell).rounded(.down), row = (0.68 / cell).rounded(.down)
-            result.append(Dot(
-                x: (column + 0.5) * cell, y: (row + 0.5) * cell,
-                radius: cell * fill * 0.75, isSignal: true
-            ))
         }
         return result
     }
 
-    /// Few enough columns that every dot still lands on a pixel at small sizes.
-    static func columns(forPixelSize size: Int) -> Int {
-        size >= 128 ? 15 : size >= 48 ? 11 : 9
+    /// The logo's red dot: on the grid, in the crescent's mouth, the size of its
+    /// neighbours. Only the logo has it. Inside the product the moon is one colour.
+    static func logoDot(columns: Int) -> Dot {
+        let cell = 1 / CGFloat(columns)
+        let column = (0.70 / cell).rounded(.down), row = (0.68 / cell).rounded(.down)
+        return Dot(x: (column + 0.5) * cell, y: (row + 0.5) * cell, radius: cell * fill / 2)
     }
 
-    static func draw(in rect: NSRect, columns: Int, phase: Phase, ink: NSColor, signal: NSColor) {
-        for dot in dots(columns: columns, phase: phase) {
-            (dot.isSignal ? signal : ink).setFill()
+    /// Few enough columns that every dot still lands on a pixel at small sizes.
+    static func columns(forPixelSize size: Int) -> Int {
+        size >= 128 ? 11 : 9
+    }
+
+    static func draw(in rect: NSRect, columns: Int, phase: Phase, ink: NSColor, logoDot dotColor: NSColor? = nil) {
+        func fill(_ dot: Dot) {
             let radius = dot.radius * rect.width
             NSBezierPath(ovalIn: NSRect(
                 x: rect.minX + dot.x * rect.width - radius,
@@ -86,20 +83,22 @@ enum MoonMark {
                 width: radius * 2, height: radius * 2
             )).fill()
         }
+        ink.setFill()
+        dots(columns: columns, phase: phase).forEach(fill)
+        if let dotColor {
+            dotColor.setFill()
+            fill(logoDot(columns: columns))
+        }
     }
 
-    /// The menu bar image. At rest it is a template, so macOS colours it for the bar
-    /// it sits on; a template has one colour, so its red dot is drawn in the same ink.
-    /// Awake it is real red pixels: macOS ignores contentTintColor on a status item's
-    /// drawn template image and paints it solid black (measured on macOS 26).
+    /// The menu bar image: always a template, so macOS colours it for the bar. Its
+    /// shape says the state, so it stays quiet in a bar full of other apps' icons.
     static func menuBarImage(phase: Phase) -> NSImage {
-        let resting = phase == .resting
         let image = NSImage(size: NSSize(width: 18, height: 18), flipped: false) { rect in
-            let ink = resting ? NSColor.black : Brand.markRed
-            draw(in: rect.insetBy(dx: 1, dy: 1), columns: 9, phase: phase, ink: ink, signal: ink)
+            draw(in: rect.insetBy(dx: 1, dy: 1), columns: 9, phase: phase, ink: .black)
             return true
         }
-        image.isTemplate = resting
+        image.isTemplate = true
         return image
     }
 }
@@ -107,21 +106,19 @@ enum MoonMark {
 /// The moon as a SwiftUI view, for the panel.
 struct MoonGlyph: View {
     let phase: MoonMark.Phase
-    var columns = 11
+    var columns = 9
 
     var body: some View {
         Canvas { context, size in
             for dot in MoonMark.dots(columns: columns, phase: phase) {
                 let radius = dot.radius * size.width
-                let frame = CGRect(
-                    x: dot.x * size.width - radius,
-                    y: (1 - dot.y) * size.height - radius,
-                    width: radius * 2, height: radius * 2
-                )
-                let awake = phase == .awake
                 context.fill(
-                    Path(ellipseIn: frame),
-                    with: .color(dot.isSignal || awake ? Color(nsColor: Brand.signal) : Color.primary)
+                    Path(ellipseIn: CGRect(
+                        x: dot.x * size.width - radius,
+                        y: (1 - dot.y) * size.height - radius,
+                        width: radius * 2, height: radius * 2
+                    )),
+                    with: .color(.primary)
                 )
             }
         }

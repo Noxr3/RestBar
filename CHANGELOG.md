@@ -8,9 +8,10 @@
 
 ### Changed
 
-- New look: a black, white and red dot-matrix identity. The moon is a crescent at rest and a full red disc while keeping the Mac awake, replacing the coffee cup.
+- New look: black and white on a dot grid, replacing the green theme and coffee cup. The moon is a crescent at rest and a full disc while keeping the Mac awake. The only red in the app is a small dot beside the timer while awake.
+- A much simpler panel that fits without scrolling: no cards, repeated icons or subtitles, and the timer moved to the header.
+- The battery percentage in the menu bar is now off by default.
 - The bundle identifier is now `io.github.noxr3.restbar`. Settings and menu bar position from earlier builds aren't carried over.
-- The main switches now line up on the right edge of the panel.
 
 ### Added
 
